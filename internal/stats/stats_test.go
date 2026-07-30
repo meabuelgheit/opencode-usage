@@ -501,7 +501,7 @@ func TestGetSummary(t *testing.T) {
 	insertMessage(t, db, id2, 3)
 	insertMessage(t, db, id3, 1)
 
-	summary, err := GetSummary(db)
+	summary, err := GetSummary(db, 0)
 	if err != nil {
 		t.Fatalf("GetSummary failed: %v", err)
 	}
@@ -557,7 +557,7 @@ func TestGetSummary_EmptyDB(t *testing.T) {
 	db := createTestDB(t)
 	defer db.Close()
 
-	summary, err := GetSummary(db)
+	summary, err := GetSummary(db, 0)
 	if err != nil {
 		t.Fatalf("GetSummary failed: %v", err)
 	}
@@ -576,6 +576,68 @@ func TestGetSummary_EmptyDB(t *testing.T) {
 	}
 	if summary.CacheWritePct != 0 {
 		t.Errorf("expected 0 CacheWritePct for empty DB, got %.1f", summary.CacheWritePct)
+	}
+}
+
+func TestGetSummaryWithDays(t *testing.T) {
+	db := createTestDB(t)
+	defer db.Close()
+
+	now := time.Now()
+
+	// Insert a recent session (1 hour ago)
+	r1, _ := db.Exec(`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, directory) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+		now.Add(-1*time.Hour).UnixMilli(), "recent", "coder", "gpt-4", 100, 50, 10, 5, 0.01, "/test")
+	id1, _ := r1.LastInsertId()
+
+	// Insert an old session (20 days ago)
+	r2, _ := db.Exec(`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, directory) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+		now.AddDate(0, 0, -20).UnixMilli(), "old", "architect", "claude-3", 200, 100, 20, 10, 0.02, "/test")
+	id2, _ := r2.LastInsertId()
+
+	// Add messages to both
+	insertMessage(t, db, id1, 5)
+	insertMessage(t, db, id2, 3)
+
+	// Query with days=7 — only recent session should be included
+	summary, err := GetSummary(db, 7)
+	if err != nil {
+		t.Fatalf("GetSummary failed: %v", err)
+	}
+
+	if summary.TotalSessions != 1 {
+		t.Errorf("expected 1 session within 7 days, got %d", summary.TotalSessions)
+	}
+
+	if summary.ActiveDays != 1 {
+		t.Errorf("expected 1 active day within 7 days, got %d", summary.ActiveDays)
+	}
+
+	expectedInput := int64(100)
+	if summary.TotalInputTokens != expectedInput {
+		t.Errorf("expected %d input tokens within 7 days, got %d", expectedInput, summary.TotalInputTokens)
+	}
+
+	expectedOutput := int64(50)
+	if summary.TotalOutputTokens != expectedOutput {
+		t.Errorf("expected %d output tokens within 7 days, got %d", expectedOutput, summary.TotalOutputTokens)
+	}
+
+	expectedCost := 0.01
+	if summary.TotalCost != expectedCost {
+		t.Errorf("expected %.2f cost within 7 days, got %.2f", expectedCost, summary.TotalCost)
+	}
+
+	if summary.MessageCount != 5 {
+		t.Errorf("expected 5 messages within 7 days, got %d", summary.MessageCount)
+	}
+
+	// Cache percentages should still be computed
+	if summary.CacheReadPct <= 0 {
+		t.Errorf("expected positive CacheReadPct, got %.1f", summary.CacheReadPct)
+	}
+	if summary.CacheWritePct <= 0 {
+		t.Errorf("expected positive CacheWritePct, got %.1f", summary.CacheWritePct)
 	}
 }
 

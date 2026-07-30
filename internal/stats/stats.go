@@ -216,21 +216,40 @@ func GetAgents(db *sql.DB, daysAgo int) ([]AgentRow, error) {
 	return results, rows.Err()
 }
 
-// GetSummary returns all-time summary statistics.
-func GetSummary(db *sql.DB) (*SummaryRow, error) {
+// GetSummary returns summary statistics, optionally filtered to the last N days.
+func GetSummary(db *sql.DB, daysAgo int) (*SummaryRow, error) {
 	var r SummaryRow
-	err := db.QueryRow(`
-		SELECT COUNT(*),
-		       COUNT(DISTINCT date(time_created/1000, 'unixepoch')),
-		       COALESCE(SUM(tokens_input), 0),
-		       COALESCE(SUM(tokens_output), 0),
-		       COALESCE(SUM(tokens_cache_read), 0),
-		       COALESCE(SUM(tokens_cache_write), 0),
-		       COALESCE(SUM(cost), 0),
-		       COALESCE(SUM((SELECT COUNT(*) FROM message WHERE message.session_id = session.id)), 0)
-		FROM session
-	`).Scan(&r.TotalSessions, &r.ActiveDays, &r.TotalInputTokens, &r.TotalOutputTokens,
-		&r.TotalCacheRead, &r.TotalCacheWrite, &r.TotalCost, &r.MessageCount)
+	var err error
+
+	if daysAgo > 0 {
+		since := time.Now().AddDate(0, 0, -daysAgo).UnixMilli()
+		err = db.QueryRow(`
+			SELECT COUNT(*),
+			       COUNT(DISTINCT date(time_created/1000, 'unixepoch')),
+			       COALESCE(SUM(tokens_input), 0),
+			       COALESCE(SUM(tokens_output), 0),
+			       COALESCE(SUM(tokens_cache_read), 0),
+			       COALESCE(SUM(tokens_cache_write), 0),
+			       COALESCE(SUM(cost), 0),
+			       COALESCE(SUM((SELECT COUNT(*) FROM message WHERE message.session_id = session.id)), 0)
+			FROM session
+			WHERE time_created >= ?
+		`, since).Scan(&r.TotalSessions, &r.ActiveDays, &r.TotalInputTokens, &r.TotalOutputTokens,
+			&r.TotalCacheRead, &r.TotalCacheWrite, &r.TotalCost, &r.MessageCount)
+	} else {
+		err = db.QueryRow(`
+			SELECT COUNT(*),
+			       COUNT(DISTINCT date(time_created/1000, 'unixepoch')),
+			       COALESCE(SUM(tokens_input), 0),
+			       COALESCE(SUM(tokens_output), 0),
+			       COALESCE(SUM(tokens_cache_read), 0),
+			       COALESCE(SUM(tokens_cache_write), 0),
+			       COALESCE(SUM(cost), 0),
+			       COALESCE(SUM((SELECT COUNT(*) FROM message WHERE message.session_id = session.id)), 0)
+			FROM session
+		`).Scan(&r.TotalSessions, &r.ActiveDays, &r.TotalInputTokens, &r.TotalOutputTokens,
+			&r.TotalCacheRead, &r.TotalCacheWrite, &r.TotalCost, &r.MessageCount)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("query summary: %w", err)
 	}

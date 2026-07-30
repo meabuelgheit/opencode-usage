@@ -11,10 +11,12 @@ import (
 )
 
 func newSummaryCmd() *cobra.Command {
+	var days int
+
 	cmd := &cobra.Command{
 		Use:   "summary",
-		Short: "Show all-time summary",
-		Long:  `Display all-time totals for sessions, tokens, and cost.`,
+		Short: "Show summary statistics",
+		Long:  `Display totals for sessions, tokens, and cost. Use --days to filter.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			database, err := openDB()
 			if err != nil {
@@ -23,7 +25,7 @@ func newSummaryCmd() *cobra.Command {
 			}
 			defer database.Close()
 
-			s, err := stats.GetSummary(database)
+			s, err := stats.GetSummary(database, days)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				os.Exit(1)
@@ -32,6 +34,8 @@ func newSummaryCmd() *cobra.Command {
 			display.PrintSummary(s)
 		},
 	}
+
+	cmd.Flags().IntVarP(&days, "days", "d", 0, "Show from last N days (0 = all)")
 
 	return cmd
 }
