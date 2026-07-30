@@ -49,7 +49,7 @@ func PrintSessions(rows []stats.SessionRow) {
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
 	t.SetStyle(table.StyleColoredBright)
-	t.AppendHeader(table.Row{"Date", "Session", "Agent", "Model", "Input", "Output", "Total", "Cache Read", "Cache Read%", "Cost"})
+	t.AppendHeader(table.Row{"Date", "Session", "Agent", "Model", "Input", "Output", "Total", "Cache Read", "Cache Read%", "MESSAGES", "Cost"})
 
 	for _, r := range rows {
 		t.AppendRow(table.Row{
@@ -62,6 +62,7 @@ func PrintSessions(rows []stats.SessionRow) {
 			num(r.TotalTokens),
 			num(r.CacheRead),
 			pctStr(r.CacheReadPct),
+			r.MessageCount,
 			costStr(r.Cost),
 		})
 	}
@@ -73,6 +74,7 @@ func PrintSessions(rows []stats.SessionRow) {
 		{Number: 8, Align: text.AlignRight},
 		{Number: 9, Align: text.AlignRight},
 		{Number: 10, Align: text.AlignRight},
+		{Number: 11, Align: text.AlignRight},
 	})
 
 	t.Render()
@@ -83,11 +85,11 @@ func PrintDaily(rows []stats.DailyRow) {
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
 	// t.SetStyle(table.StyleColoredBright)
-	t.AppendHeader(table.Row{"Date", "Sessions", "Input", "Output", "Total", "Cache Read", "Cache Write", "Cache Read%", "Cache Write%", "Cost"})
+	t.AppendHeader(table.Row{"Date", "Sessions", "MESSAGES", "Input", "Output", "Total", "Cache Read", "Cache Write", "Cache Read%", "Cache Write%", "Cost"})
 
 	for _, r := range rows {
 		t.AppendRow(table.Row{
-			r.Date, r.Sessions,
+			r.Date, r.Sessions, r.MessageCount,
 			num(r.InputTokens), num(r.OutputTokens),
 			num(r.TotalTokens),
 			num(r.CacheRead), num(r.CacheWrite),
@@ -97,7 +99,6 @@ func PrintDaily(rows []stats.DailyRow) {
 	}
 
 	t.SetColumnConfigs([]table.ColumnConfig{
-		{Number: 3, Align: text.AlignRight},
 		{Number: 4, Align: text.AlignRight},
 		{Number: 5, Align: text.AlignRight},
 		{Number: 6, Align: text.AlignRight},
@@ -105,6 +106,7 @@ func PrintDaily(rows []stats.DailyRow) {
 		{Number: 8, Align: text.AlignRight},
 		{Number: 9, Align: text.AlignRight},
 		{Number: 10, Align: text.AlignRight},
+		{Number: 11, Align: text.AlignRight},
 	})
 
 	t.Render()
@@ -115,11 +117,11 @@ func PrintModels(rows []stats.ModelRow) {
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
 	t.SetStyle(table.StyleColoredBright)
-	t.AppendHeader(table.Row{"Model", "Sessions", "Input", "Output", "Total", "Cache Read", "Cache Write", "Cache Read%", "Cache Write%", "Cost"})
+	t.AppendHeader(table.Row{"Model", "Sessions", "MESSAGES", "Input", "Output", "Total", "Cache Read", "Cache Write", "Cache Read%", "Cache Write%", "Cost"})
 
 	for _, r := range rows {
 		t.AppendRow(table.Row{
-			modelShort(r.Model), r.Sessions,
+			modelShort(r.Model), r.Sessions, r.MessageCount,
 			num(r.InputTokens), num(r.OutputTokens),
 			num(r.TotalTokens),
 			num(r.CacheRead), num(r.CacheWrite),
@@ -129,7 +131,6 @@ func PrintModels(rows []stats.ModelRow) {
 	}
 
 	t.SetColumnConfigs([]table.ColumnConfig{
-		{Number: 3, Align: text.AlignRight},
 		{Number: 4, Align: text.AlignRight},
 		{Number: 5, Align: text.AlignRight},
 		{Number: 6, Align: text.AlignRight},
@@ -137,6 +138,7 @@ func PrintModels(rows []stats.ModelRow) {
 		{Number: 8, Align: text.AlignRight},
 		{Number: 9, Align: text.AlignRight},
 		{Number: 10, Align: text.AlignRight},
+		{Number: 11, Align: text.AlignRight},
 	})
 
 	t.Render()
@@ -147,12 +149,13 @@ func PrintAgents(rows []stats.AgentRow) {
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
 	t.SetStyle(table.StyleColoredBright)
-	t.AppendHeader(table.Row{"Agent", "Sessions", "Input", "Output", "Cost"})
+	t.AppendHeader(table.Row{"Agent", "Sessions", "Input", "Output", "MESSAGES", "Cost"})
 
 	for _, r := range rows {
 		t.AppendRow(table.Row{
 			r.Agent, r.Sessions,
 			num(r.InputTokens), num(r.OutputTokens),
+			r.MessageCount,
 			costStr(r.Cost),
 		})
 	}
@@ -161,6 +164,7 @@ func PrintAgents(rows []stats.AgentRow) {
 		{Number: 3, Align: text.AlignRight},
 		{Number: 4, Align: text.AlignRight},
 		{Number: 5, Align: text.AlignRight},
+		{Number: 6, Align: text.AlignRight},
 	})
 
 	t.Render()
@@ -181,6 +185,7 @@ func PrintSummary(s *stats.SummaryRow) {
 		{"Total Cache Read", num(s.TotalCacheRead)},
 		{"Total Cache Write", num(s.TotalCacheWrite)},
 		{"Cache Read Rate", pctStr(s.CacheReadPct)},
+		{"Total Messages", s.MessageCount},
 		{"Total Cost", costStr(s.TotalCost)},
 	})
 
@@ -196,7 +201,7 @@ func PrintProjects(rows []stats.ProjectRow) {
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
 	t.SetStyle(table.StyleColoredBright)
-	t.AppendHeader(table.Row{"Project", "Sessions", "Input", "Output", "Cost"})
+	t.AppendHeader(table.Row{"Project", "Sessions", "Input", "Output", "MESSAGES", "Cost"})
 
 	for _, r := range rows {
 		// Truncate long project paths
@@ -207,6 +212,7 @@ func PrintProjects(rows []stats.ProjectRow) {
 		t.AppendRow(table.Row{
 			proj, r.Sessions,
 			num(r.InputTokens), num(r.OutputTokens),
+			r.MessageCount,
 			costStr(r.Cost),
 		})
 	}
@@ -215,6 +221,7 @@ func PrintProjects(rows []stats.ProjectRow) {
 		{Number: 3, Align: text.AlignRight},
 		{Number: 4, Align: text.AlignRight},
 		{Number: 5, Align: text.AlignRight},
+		{Number: 6, Align: text.AlignRight},
 	})
 
 	t.Render()

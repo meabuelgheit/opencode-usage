@@ -12,6 +12,7 @@ type SessionRow struct {
 	TotalTokens int64   // input + cache_read (effective prompt size)
 	CacheReadPct float64 // cache_read / (input + cache_read) * 100
 	Cost         float64 // cost in dollars
+	MessageCount int     // number of messages
 }
 
 // DailyRow represents daily aggregated stats.
@@ -26,6 +27,7 @@ type DailyRow struct {
 	CacheReadPct  float64 // cache_read / (input + cache_read) * 100
 	CacheWritePct float64 // cache_write / total * 100
 	Cost          float64
+	MessageCount  int
 }
 
 // ModelRow represents per-model breakdown.
@@ -40,6 +42,7 @@ type ModelRow struct {
 	CacheReadPct  float64 // cache_read / (input + cache_read) * 100
 	CacheWritePct float64 // cache_write / total * 100
 	Cost          float64
+	MessageCount  int
 }
 
 // AgentRow represents per-agent breakdown.
@@ -48,7 +51,8 @@ type AgentRow struct {
 	Sessions    int
 	InputTokens int64
 	OutputTokens int64
-	Cost        float64
+	Cost         float64
+	MessageCount int
 }
 
 // SummaryRow represents all-time totals.
@@ -62,6 +66,7 @@ type SummaryRow struct {
 	TotalCost        float64
 	CacheReadPct     float64 // aggregate
 	CacheWritePct    float64 // aggregate
+	MessageCount     int
 }
 
 // ProjectRow represents per-project breakdown.
@@ -70,5 +75,6 @@ type ProjectRow struct {
 	Sessions    int
 	InputTokens int64
 	OutputTokens int64
-	Cost        float64
+	Cost         float64
+	MessageCount int
 }

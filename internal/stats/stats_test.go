@@ -39,6 +39,13 @@ func createTestDB(t *testing.T) *sql.DB {
 			project_id INTEGER REFERENCES project(id),
 			directory TEXT
 		);
+
+		CREATE TABLE IF NOT EXISTS message (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			session_id INTEGER NOT NULL REFERENCES session(id),
+			time_created INTEGER NOT NULL,
+			data TEXT
+		);
 	`)
 	if err != nil {
 		t.Fatalf("failed to create tables: %v", err)
@@ -80,15 +87,42 @@ func insertProject(t *testing.T, db *sql.DB, name, directory string) int64 {
 	return id
 }
 
+func insertMessage(t *testing.T, db *sql.DB, sessionID int64, count int) {
+	t.Helper()
+	for i := 0; i < count; i++ {
+		_, err := db.Exec(`INSERT INTO message (session_id, time_created, data) VALUES (?, ?, ?)`,
+			sessionID, time.Now().UnixMilli(), "test message")
+		if err != nil {
+			t.Fatalf("failed to insert message: %v", err)
+		}
+	}
+}
+
 func TestGetSessions(t *testing.T) {
 	db := createTestDB(t)
 	defer db.Close()
 
 	now := time.Now()
+
+	// We need session IDs. Insert one at a time and track IDs.
+	var sessionIDs []int64
 	for i := 0; i < 5; i++ {
 		ts := now.Add(-time.Duration(i) * time.Hour).UnixMilli()
-		insertSession(t, db, ts, "session-"+string(rune('a'+i)), "coder", "gpt-4", 100*int64(i+1), 50*int64(i+1), 10*int64(i+1), 5*int64(i+1), float64(i+1)*0.01, nil, "/test/project")
+		slug := "s" + string(rune('a'+i))
+		result, err := db.Exec(
+			`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, directory)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			ts, slug, "coder", "gpt-4", 100*int64(i+1), 50*int64(i+1), 10*int64(i+1), 5*int64(i+1), float64(i+1)*0.01, "/test/project")
+		if err != nil {
+			t.Fatalf("failed to insert session: %v", err)
+		}
+		id, _ := result.LastInsertId()
+		sessionIDs = append(sessionIDs, id)
 	}
+
+	// Insert messages: 3 for first session, 1 for second, 0 for rest
+	insertMessage(t, db, sessionIDs[0], 3)
+	insertMessage(t, db, sessionIDs[1], 1)
 
 	rows, err := GetSessions(db, 3, 0)
 	if err != nil {
@@ -120,6 +154,21 @@ func TestGetSessions(t *testing.T) {
 			t.Errorf("expected positive CacheReadPct for row with cache reads, got %.1f", r.CacheReadPct)
 		}
 	}
+
+	// Check MessageCount: first row (newest, session[4]) has 0 msgs, second (session[3]) has 0, third (session[2]) has 0
+	// Actually sessionIDs[4] is the most recent (i=0 is most recent because i=0 means 0 hours ago)
+	// Wait: i=0 is now, i=1 is 1hr ago, i=2 is 2hr ago... i=4 is 4hr ago
+	// ORDER BY time_created DESC means rows[0] = sessionIDs[0], rows[1] = sessionIDs[1], etc.
+	// We added 3 msgs to sessionIDs[0] and 1 msg to sessionIDs[1]
+	if len(rows) >= 1 && rows[0].MessageCount != 3 {
+		t.Errorf("expected MessageCount 3 for first session, got %d", rows[0].MessageCount)
+	}
+	if len(rows) >= 2 && rows[1].MessageCount != 1 {
+		t.Errorf("expected MessageCount 1 for second session, got %d", rows[1].MessageCount)
+	}
+	if len(rows) >= 3 && rows[2].MessageCount != 0 {
+		t.Errorf("expected MessageCount 0 for third session, got %d", rows[2].MessageCount)
+	}
 }
 
 func TestGetSessionsWithDays(t *testing.T) {
@@ -128,11 +177,28 @@ func TestGetSessionsWithDays(t *testing.T) {
 
 	now := time.Now()
 
-	// Insert a recent session
-	insertSession(t, db, now.Add(-1*time.Hour).UnixMilli(), "recent", "coder", "gpt-4", 100, 50, 10, 5, 0.01, nil, "/test")
+	// We need the session IDs, so use db.Exec directly
+	result, err := db.Exec(
+		`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, directory)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		now.Add(-1*time.Hour).UnixMilli(), "recent", "coder", "gpt-4", 100, 50, 10, 5, 0.01, "/test")
+	if err != nil {
+		t.Fatalf("failed to insert session: %v", err)
+	}
+	recentID, _ := result.LastInsertId()
 
-	// Insert an old session (20 days ago)
-	insertSession(t, db, now.AddDate(0, 0, -20).UnixMilli(), "old", "coder", "gpt-4", 200, 100, 20, 10, 0.02, nil, "/test")
+	result, err = db.Exec(
+		`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, directory)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		now.AddDate(0, 0, -20).UnixMilli(), "old", "coder", "gpt-4", 200, 100, 20, 10, 0.02, "/test")
+	if err != nil {
+		t.Fatalf("failed to insert session: %v", err)
+	}
+	oldID, _ := result.LastInsertId()
+
+	// Add messages to both sessions
+	insertMessage(t, db, recentID, 5)
+	insertMessage(t, db, oldID, 2)
 
 	// Query with days=7 should only return the recent one
 	rows, err := GetSessions(db, 10, 7)
@@ -147,6 +213,10 @@ func TestGetSessionsWithDays(t *testing.T) {
 	if len(rows) > 0 && rows[0].Slug != "recent" {
 		t.Errorf("expected 'recent' session, got %s", rows[0].Slug)
 	}
+
+	if len(rows) > 0 && rows[0].MessageCount != 5 {
+		t.Errorf("expected MessageCount 5 for recent session, got %d", rows[0].MessageCount)
+	}
 }
 
 func TestGetDaily(t *testing.T) {
@@ -155,16 +225,28 @@ func TestGetDaily(t *testing.T) {
 
 	now := time.Now()
 
-	// Insert sessions across 3 days
+	// Insert sessions across 3 days, track IDs
 	// Day -2: 2 sessions
-	insertSession(t, db, now.AddDate(0, 0, -2).Add(1*time.Hour).UnixMilli(), "s1", "coder", "gpt-4", 100, 50, 10, 5, 0.01, nil, "/test")
-	insertSession(t, db, now.AddDate(0, 0, -2).Add(2*time.Hour).UnixMilli(), "s2", "architect", "claude-3", 200, 100, 20, 10, 0.02, nil, "/test")
+	r1, _ := db.Exec(`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, directory) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+		now.AddDate(0, 0, -2).Add(1*time.Hour).UnixMilli(), "s1", "coder", "gpt-4", 100, 50, 10, 5, 0.01, "/test")
+	id1, _ := r1.LastInsertId()
+	r2, _ := db.Exec(`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, directory) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+		now.AddDate(0, 0, -2).Add(2*time.Hour).UnixMilli(), "s2", "architect", "claude-3", 200, 100, 20, 10, 0.02, "/test")
+	_, _ = r2.LastInsertId()
 
 	// Day -1: 1 session
-	insertSession(t, db, now.AddDate(0, 0, -1).Add(1*time.Hour).UnixMilli(), "s3", "coder", "gpt-4", 300, 150, 30, 15, 0.03, nil, "/test")
+	r3, _ := db.Exec(`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, directory) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+		now.AddDate(0, 0, -1).Add(1*time.Hour).UnixMilli(), "s3", "coder", "gpt-4", 300, 150, 30, 15, 0.03, "/test")
+	id3, _ := r3.LastInsertId()
 
 	// Day 0 (today): 1 session
-	insertSession(t, db, now.Add(1*time.Hour).UnixMilli(), "s4", "coder", "gpt-4", 400, 200, 40, 20, 0.04, nil, "/test")
+	r4, _ := db.Exec(`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, directory) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+		now.Add(1*time.Hour).UnixMilli(), "s4", "coder", "gpt-4", 400, 200, 40, 20, 0.04, "/test")
+	_, _ = r4.LastInsertId()
+
+	// Add messages: 3 to s1, 1 to s3
+	insertMessage(t, db, id1, 3)
+	insertMessage(t, db, id3, 1)
 
 	rows, err := GetDaily(db, 7)
 	if err != nil {
@@ -176,7 +258,7 @@ func TestGetDaily(t *testing.T) {
 		t.Errorf("expected 3 daily rows, got %d", len(rows))
 	}
 
-	// Find the day with 2 sessions
+	// Check MessageCount across days
 	for _, r := range rows {
 		if r.Sessions == 2 {
 			// That day should have 300 input tokens combined
@@ -185,6 +267,19 @@ func TestGetDaily(t *testing.T) {
 			}
 			if r.Cost != 0.03 {
 				t.Errorf("expected 0.03 cost for day with 2 sessions, got %.2f", r.Cost)
+			}
+			// Day -2: s1 has 3 messages, s2 has 0 messages => total 3
+			if r.MessageCount != 3 {
+				t.Errorf("expected MessageCount 3 for day with 2 sessions, got %d", r.MessageCount)
+			}
+		} else if r.Sessions == 1 {
+			// Could be day -1 (s3 has 1 msg) or today (s4 has 0 msgs)
+			// Check based on TotalTokens: day -1 has 300+30=330, today has 400+40=440
+			if r.TotalTokens == 330 && r.MessageCount != 1 {
+				t.Errorf("expected MessageCount 1 for day -1, got %d", r.MessageCount)
+			}
+			if r.TotalTokens == 440 && r.MessageCount != 0 {
+				t.Errorf("expected MessageCount 0 for today, got %d", r.MessageCount)
 			}
 		}
 		// Check TotalTokens = InputTokens + CacheRead
@@ -210,16 +305,33 @@ func TestGetModels(t *testing.T) {
 	now := time.Now()
 
 	// 2 sessions with gpt-4
-	insertSession(t, db, now.Add(-1*time.Hour).UnixMilli(), "s1", "coder", "gpt-4", 100, 50, 10, 5, 0.01, nil, "/test")
-	insertSession(t, db, now.Add(-2*time.Hour).UnixMilli(), "s2", "coder", "gpt-4", 200, 100, 20, 10, 0.02, nil, "/test")
+	r1, _ := db.Exec(`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, directory) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+		now.Add(-1*time.Hour).UnixMilli(), "s1", "coder", "gpt-4", 100, 50, 10, 5, 0.01, "/test")
+	id1, _ := r1.LastInsertId()
+	r2, _ := db.Exec(`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, directory) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+		now.Add(-2*time.Hour).UnixMilli(), "s2", "coder", "gpt-4", 200, 100, 20, 10, 0.02, "/test")
+	_, _ = r2.LastInsertId()
 
 	// 3 sessions with claude-3 (should be first, most sessions)
-	insertSession(t, db, now.Add(-3*time.Hour).UnixMilli(), "s3", "architect", "claude-3", 300, 150, 30, 15, 0.03, nil, "/test")
-	insertSession(t, db, now.Add(-4*time.Hour).UnixMilli(), "s4", "architect", "claude-3", 400, 200, 40, 20, 0.04, nil, "/test")
-	insertSession(t, db, now.Add(-5*time.Hour).UnixMilli(), "s5", "architect", "claude-3", 500, 250, 50, 25, 0.05, nil, "/test")
+	r3, _ := db.Exec(`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, directory) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+		now.Add(-3*time.Hour).UnixMilli(), "s3", "architect", "claude-3", 300, 150, 30, 15, 0.03, "/test")
+	id3, _ := r3.LastInsertId()
+	r4, _ := db.Exec(`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, directory) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+		now.Add(-4*time.Hour).UnixMilli(), "s4", "architect", "claude-3", 400, 200, 40, 20, 0.04, "/test")
+	_, _ = r4.LastInsertId()
+	r5, _ := db.Exec(`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, directory) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+		now.Add(-5*time.Hour).UnixMilli(), "s5", "architect", "claude-3", 500, 250, 50, 25, 0.05, "/test")
+	_, _ = r5.LastInsertId()
 
 	// 1 session with null model (should be 'unknown')
-	insertSession(t, db, now.Add(-6*time.Hour).UnixMilli(), "s6", "coder", nil, 50, 25, 5, 2, 0.005, nil, "/test")
+	r6, _ := db.Exec(`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, directory) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+		now.Add(-6*time.Hour).UnixMilli(), "s6", "coder", nil, 50, 25, 5, 2, 0.005, "/test")
+	id6, _ := r6.LastInsertId()
+
+	// Add messages: 2 to gpt-4 s1, 4 to claude-3 s3, 1 to unknown s6
+	insertMessage(t, db, id1, 2)
+	insertMessage(t, db, id3, 4)
+	insertMessage(t, db, id6, 1)
 
 	rows, err := GetModels(db, 0)
 	if err != nil {
@@ -239,6 +351,16 @@ func TestGetModels(t *testing.T) {
 		t.Errorf("expected claude-3 to have 3 sessions, got %d", rows[0].Sessions)
 	}
 
+	// Check MessageCount
+	for _, r := range rows {
+		if r.Model == "claude-3" && r.MessageCount != 4 {
+			t.Errorf("expected MessageCount 4 for claude-3, got %d", r.MessageCount)
+		}
+		if r.Model == "gpt-4" && r.MessageCount != 2 {
+			t.Errorf("expected MessageCount 2 for gpt-4, got %d", r.MessageCount)
+		}
+	}
+
 	// Check unknown model
 	foundUnknown := false
 	for _, r := range rows {
@@ -246,6 +368,9 @@ func TestGetModels(t *testing.T) {
 			foundUnknown = true
 			if r.Sessions != 1 {
 				t.Errorf("expected unknown model to have 1 session, got %d", r.Sessions)
+			}
+			if r.MessageCount != 1 {
+				t.Errorf("expected MessageCount 1 for unknown model, got %d", r.MessageCount)
 			}
 		}
 		// Check TotalTokens = InputTokens + CacheRead
@@ -274,16 +399,30 @@ func TestGetAgents(t *testing.T) {
 	now := time.Now()
 
 	// 2 sessions with coder
-	insertSession(t, db, now.Add(-1*time.Hour).UnixMilli(), "s1", "coder", "gpt-4", 100, 50, 10, 5, 0.01, nil, "/test")
-	insertSession(t, db, now.Add(-2*time.Hour).UnixMilli(), "s2", "coder", "gpt-4", 200, 100, 20, 10, 0.02, nil, "/test")
+	r1, _ := db.Exec(`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, directory) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+		now.Add(-1*time.Hour).UnixMilli(), "s1", "coder", "gpt-4", 100, 50, 10, 5, 0.01, "/test")
+	id1, _ := r1.LastInsertId()
+	_, _ = db.Exec(`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, directory) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+		now.Add(-2*time.Hour).UnixMilli(), "s2", "coder", "gpt-4", 200, 100, 20, 10, 0.02, "/test")
 
 	// 3 sessions with architect
-	insertSession(t, db, now.Add(-3*time.Hour).UnixMilli(), "s3", "architect", "claude-3", 300, 150, 30, 15, 0.03, nil, "/test")
-	insertSession(t, db, now.Add(-4*time.Hour).UnixMilli(), "s4", "architect", "claude-3", 400, 200, 40, 20, 0.04, nil, "/test")
-	insertSession(t, db, now.Add(-5*time.Hour).UnixMilli(), "s5", "architect", "claude-3", 500, 250, 50, 25, 0.05, nil, "/test")
+	r3, _ := db.Exec(`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, directory) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+		now.Add(-3*time.Hour).UnixMilli(), "s3", "architect", "claude-3", 300, 150, 30, 15, 0.03, "/test")
+	id3, _ := r3.LastInsertId()
+	_, _ = db.Exec(`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, directory) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+		now.Add(-4*time.Hour).UnixMilli(), "s4", "architect", "claude-3", 400, 200, 40, 20, 0.04, "/test")
+	_, _ = db.Exec(`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, directory) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+		now.Add(-5*time.Hour).UnixMilli(), "s5", "architect", "claude-3", 500, 250, 50, 25, 0.05, "/test")
 
 	// 1 session with null agent (should be 'unknown')
-	insertSession(t, db, now.Add(-6*time.Hour).UnixMilli(), "s6", nil, "gpt-4", 50, 25, 5, 2, 0.005, nil, "/test")
+	r6, _ := db.Exec(`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, directory) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+		now.Add(-6*time.Hour).UnixMilli(), "s6", nil, "gpt-4", 50, 25, 5, 2, 0.005, "/test")
+	id6, _ := r6.LastInsertId()
+
+	// Add messages: 3 to coder s1, 5 to architect s3, 2 to unknown s6
+	insertMessage(t, db, id1, 3)
+	insertMessage(t, db, id3, 5)
+	insertMessage(t, db, id6, 2)
 
 	rows, err := GetAgents(db, 0)
 	if err != nil {
@@ -303,11 +442,24 @@ func TestGetAgents(t *testing.T) {
 		t.Errorf("expected architect to have 3 sessions, got %d", rows[0].Sessions)
 	}
 
+	// Check MessageCount
+	for _, r := range rows {
+		if r.Agent == "architect" && r.MessageCount != 5 {
+			t.Errorf("expected MessageCount 5 for architect, got %d", r.MessageCount)
+		}
+		if r.Agent == "coder" && r.MessageCount != 3 {
+			t.Errorf("expected MessageCount 3 for coder, got %d", r.MessageCount)
+		}
+	}
+
 	// Check unknown agent
 	foundUnknown := false
 	for _, r := range rows {
 		if r.Agent == "unknown" {
 			foundUnknown = true
+			if r.MessageCount != 2 {
+				t.Errorf("expected MessageCount 2 for unknown agent, got %d", r.MessageCount)
+			}
 		}
 	}
 	if !foundUnknown {
@@ -321,10 +473,21 @@ func TestGetSummary(t *testing.T) {
 
 	now := time.Now()
 
-	// Insert sessions across 2 days
-	insertSession(t, db, now.AddDate(0, 0, -1).Add(1*time.Hour).UnixMilli(), "s1", "coder", "gpt-4", 100, 50, 10, 5, 0.01, nil, "/test")
-	insertSession(t, db, now.AddDate(0, 0, -1).Add(2*time.Hour).UnixMilli(), "s2", "architect", "claude-3", 200, 100, 20, 10, 0.02, nil, "/test")
-	insertSession(t, db, now.Add(1*time.Hour).UnixMilli(), "s3", "coder", "gpt-4", 300, 150, 30, 15, 0.03, nil, "/test")
+	// Insert sessions across 2 days, track IDs
+	r1, _ := db.Exec(`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, directory) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+		now.AddDate(0, 0, -1).Add(1*time.Hour).UnixMilli(), "s1", "coder", "gpt-4", 100, 50, 10, 5, 0.01, "/test")
+	id1, _ := r1.LastInsertId()
+	r2, _ := db.Exec(`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, directory) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+		now.AddDate(0, 0, -1).Add(2*time.Hour).UnixMilli(), "s2", "architect", "claude-3", 200, 100, 20, 10, 0.02, "/test")
+	id2, _ := r2.LastInsertId()
+	r3, _ := db.Exec(`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, directory) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+		now.Add(1*time.Hour).UnixMilli(), "s3", "coder", "gpt-4", 300, 150, 30, 15, 0.03, "/test")
+	id3, _ := r3.LastInsertId()
+
+	// Add messages: 2 to s1, 3 to s2, 1 to s3
+	insertMessage(t, db, id1, 2)
+	insertMessage(t, db, id2, 3)
+	insertMessage(t, db, id3, 1)
 
 	summary, err := GetSummary(db)
 	if err != nil {
@@ -352,6 +515,10 @@ func TestGetSummary(t *testing.T) {
 	expectedCost := 0.06
 	if summary.TotalCost != expectedCost {
 		t.Errorf("expected %.2f total cost, got %.2f", expectedCost, summary.TotalCost)
+	}
+
+	if summary.MessageCount != 6 {
+		t.Errorf("expected 6 total messages, got %d", summary.MessageCount)
 	}
 
 	if summary.CacheReadPct <= 0 {
@@ -389,6 +556,9 @@ func TestGetSummary_EmptyDB(t *testing.T) {
 	if summary.ActiveDays != 0 {
 		t.Errorf("expected 0 active days, got %d", summary.ActiveDays)
 	}
+	if summary.MessageCount != 0 {
+		t.Errorf("expected 0 MessageCount for empty DB, got %d", summary.MessageCount)
+	}
 	if summary.CacheReadPct != 0 {
 		t.Errorf("expected 0 CacheReadPct for empty DB, got %.1f", summary.CacheReadPct)
 	}
@@ -411,16 +581,30 @@ func TestGetProjects(t *testing.T) {
 	proj2IDPtr := int(proj2ID)
 
 	// 2 sessions for proj1
-	insertSession(t, db, now.Add(-1*time.Hour).UnixMilli(), "s1", "coder", "gpt-4", 100, 50, 10, 5, 0.01, &proj1IDPtr, "/home/user/my-project")
-	insertSession(t, db, now.Add(-2*time.Hour).UnixMilli(), "s2", "coder", "gpt-4", 200, 100, 20, 10, 0.02, &proj1IDPtr, "/home/user/my-project")
+	r1, _ := db.Exec(`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, project_id, directory) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+		now.Add(-1*time.Hour).UnixMilli(), "s1", "coder", "gpt-4", 100, 50, 10, 5, 0.01, &proj1IDPtr, "/home/user/my-project")
+	id1, _ := r1.LastInsertId()
+	_, _ = db.Exec(`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, project_id, directory) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+		now.Add(-2*time.Hour).UnixMilli(), "s2", "coder", "gpt-4", 200, 100, 20, 10, 0.02, &proj1IDPtr, "/home/user/my-project")
 
 	// 3 sessions for proj2
-	insertSession(t, db, now.Add(-3*time.Hour).UnixMilli(), "s3", "architect", "claude-3", 300, 150, 30, 15, 0.03, &proj2IDPtr, "/home/user/another-project")
-	insertSession(t, db, now.Add(-4*time.Hour).UnixMilli(), "s4", "architect", "claude-3", 400, 200, 40, 20, 0.04, &proj2IDPtr, "/home/user/another-project")
-	insertSession(t, db, now.Add(-5*time.Hour).UnixMilli(), "s5", "architect", "claude-3", 500, 250, 50, 25, 0.05, &proj2IDPtr, "/home/user/another-project")
+	r3, _ := db.Exec(`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, project_id, directory) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+		now.Add(-3*time.Hour).UnixMilli(), "s3", "architect", "claude-3", 300, 150, 30, 15, 0.03, &proj2IDPtr, "/home/user/another-project")
+	id3, _ := r3.LastInsertId()
+	_, _ = db.Exec(`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, project_id, directory) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+		now.Add(-4*time.Hour).UnixMilli(), "s4", "architect", "claude-3", 400, 200, 40, 20, 0.04, &proj2IDPtr, "/home/user/another-project")
+	_, _ = db.Exec(`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, project_id, directory) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+		now.Add(-5*time.Hour).UnixMilli(), "s5", "architect", "claude-3", 500, 250, 50, 25, 0.05, &proj2IDPtr, "/home/user/another-project")
 
 	// 1 session with no project_id (should use directory)
-	insertSession(t, db, now.Add(-6*time.Hour).UnixMilli(), "s6", "coder", "gpt-4", 50, 25, 5, 2, 0.005, nil, "/some/other/dir")
+	r6, _ := db.Exec(`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, directory) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+		now.Add(-6*time.Hour).UnixMilli(), "s6", "coder", "gpt-4", 50, 25, 5, 2, 0.005, "/some/other/dir")
+	id6, _ := r6.LastInsertId()
+
+	// Add messages: 1 to s1, 2 to s3, 3 to s6
+	insertMessage(t, db, id1, 1)
+	insertMessage(t, db, id3, 2)
+	insertMessage(t, db, id6, 3)
 
 	rows, err := GetProjects(db, 0)
 	if err != nil {
@@ -440,6 +624,11 @@ func TestGetProjects(t *testing.T) {
 		t.Errorf("expected another-project to have 3 sessions, got %d", rows[0].Sessions)
 	}
 
+	// Check MessageCount
+	if rows[0].Project == "another-project" && rows[0].MessageCount != 2 {
+		t.Errorf("expected MessageCount 2 for another-project, got %d", rows[0].MessageCount)
+	}
+
 	// Check the unlinked session uses directory
 	foundDir := false
 	for _, r := range rows {
@@ -447,6 +636,9 @@ func TestGetProjects(t *testing.T) {
 			foundDir = true
 			if r.Sessions != 1 {
 				t.Errorf("expected directory project to have 1 session, got %d", r.Sessions)
+			}
+			if r.MessageCount != 3 {
+				t.Errorf("expected MessageCount 3 for directory project, got %d", r.MessageCount)
 			}
 		}
 	}
@@ -465,10 +657,18 @@ func TestGetProjectsWithDays(t *testing.T) {
 	projIDPtr := int(projID)
 
 	// Recent session
-	insertSession(t, db, now.Add(-1*time.Hour).UnixMilli(), "s1", "coder", "gpt-4", 100, 50, 10, 5, 0.01, &projIDPtr, "/test")
+	r1, _ := db.Exec(`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, project_id, directory) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+		now.Add(-1*time.Hour).UnixMilli(), "s1", "coder", "gpt-4", 100, 50, 10, 5, 0.01, &projIDPtr, "/test")
+	id1, _ := r1.LastInsertId()
 
 	// Old session (20 days ago)
-	insertSession(t, db, now.AddDate(0, 0, -20).UnixMilli(), "s2", "coder", "gpt-4", 200, 100, 20, 10, 0.02, &projIDPtr, "/test")
+	r2, _ := db.Exec(`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, project_id, directory) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+		now.AddDate(0, 0, -20).UnixMilli(), "s2", "coder", "gpt-4", 200, 100, 20, 10, 0.02, &projIDPtr, "/test")
+	id2, _ := r2.LastInsertId()
+
+	// Add messages
+	insertMessage(t, db, id1, 7)
+	insertMessage(t, db, id2, 1)
 
 	rows, err := GetProjects(db, 7)
 	if err != nil {
@@ -481,6 +681,10 @@ func TestGetProjectsWithDays(t *testing.T) {
 
 	if rows[0].Sessions != 1 {
 		t.Errorf("expected 1 session for project in last 7 days, got %d", rows[0].Sessions)
+	}
+
+	if rows[0].MessageCount != 7 {
+		t.Errorf("expected MessageCount 7 for project in last 7 days, got %d", rows[0].MessageCount)
 	}
 }
 
