@@ -11,6 +11,14 @@ import (
 	"github.com/abuelgheit/opencode-stats/internal/stats"
 )
 
+func newTable() table.Writer {
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.SetStyle(table.StyleDefault)
+	t.Style().Color.RowAlternate = text.Colors{text.Faint}
+	return t
+}
+
 // num formats an int64 with human-readable suffixes (K, M, B).
 func num(n int64) string {
 	switch {
@@ -46,9 +54,7 @@ func modelShort(m string) string {
 
 // PrintSessions renders session rows as a table.
 func PrintSessions(rows []stats.SessionRow) {
-	t := table.NewWriter()
-	t.SetOutputMirror(os.Stdout)
-	t.SetStyle(table.StyleDefault)
+	t := newTable()
 	t.AppendHeader(table.Row{"Date", "Session", "Agent", "Model", "Input", "Output", "Total", "Cache Read", "Cache Read%", "MESSAGES", "Cost"})
 
 	for _, r := range rows {
@@ -82,9 +88,7 @@ func PrintSessions(rows []stats.SessionRow) {
 
 // PrintDaily renders daily aggregate rows as a table.
 func PrintDaily(rows []stats.DailyRow) {
-	t := table.NewWriter()
-	t.SetOutputMirror(os.Stdout)
-	// t.SetStyle(table.StyleDefault)
+	t := newTable()
 	t.AppendHeader(table.Row{"Date", "Sessions", "MESSAGES", "Input", "Output", "Total", "Cache Read", "Cache Write", "Cache Read%", "Cache Write%", "Cost"})
 
 	for _, r := range rows {
@@ -114,9 +118,7 @@ func PrintDaily(rows []stats.DailyRow) {
 
 // PrintModels renders model breakdown rows as a table.
 func PrintModels(rows []stats.ModelRow) {
-	t := table.NewWriter()
-	t.SetOutputMirror(os.Stdout)
-	t.SetStyle(table.StyleDefault)
+	t := newTable()
 	t.AppendHeader(table.Row{"Model", "Sessions", "MESSAGES", "Input", "Output", "Total", "Cache Read", "Cache Write", "Cache Read%", "Cache Write%", "Cost"})
 
 	for _, r := range rows {
@@ -146,9 +148,7 @@ func PrintModels(rows []stats.ModelRow) {
 
 // PrintAgents renders agent breakdown rows as a table.
 func PrintAgents(rows []stats.AgentRow) {
-	t := table.NewWriter()
-	t.SetOutputMirror(os.Stdout)
-	t.SetStyle(table.StyleDefault)
+	t := newTable()
 	t.AppendHeader(table.Row{"Agent", "Sessions", "MESSAGES", "Input", "Output", "Total", "Cache Read", "Cache Read%", "Cost"})
 
 	for _, r := range rows {
@@ -175,10 +175,7 @@ func PrintAgents(rows []stats.AgentRow) {
 
 // PrintSummary renders the all-time summary as a single-row table.
 func PrintSummary(s *stats.SummaryRow) {
-	t := table.NewWriter()
-	t.SetOutputMirror(os.Stdout)
-	t.SetStyle(table.StyleDefault)
-
+	t := newTable()
 	t.AppendHeader(table.Row{"Metric", "Value"})
 	t.AppendRows([]table.Row{
 		{"Total Sessions", s.TotalSessions},
@@ -201,9 +198,7 @@ func PrintSummary(s *stats.SummaryRow) {
 
 // PrintProjects renders project breakdown rows as a table.
 func PrintProjects(rows []stats.ProjectRow) {
-	t := table.NewWriter()
-	t.SetOutputMirror(os.Stdout)
-	t.SetStyle(table.StyleDefault)
+	t := newTable()
 	t.AppendHeader(table.Row{"Project", "Sessions", "Input", "Output", "MESSAGES", "Cost"})
 
 	for _, r := range rows {
