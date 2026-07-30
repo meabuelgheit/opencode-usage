@@ -70,3 +70,23 @@ func TestModelShort(t *testing.T) {
 		}
 	}
 }
+
+func TestPctStr(t *testing.T) {
+	tests := []struct {
+		input    float64
+		expected string
+	}{
+		{0, "0.0%"},
+		{50.0, "50.0%"},
+		{95.234, "95.2%"},
+		{100.0, "100.0%"},
+		{0.05, "0.1%"}, // rounded up
+	}
+
+	for _, tt := range tests {
+		result := pctStr(tt.input)
+		if result != tt.expected {
+			t.Errorf("pctStr(%f) = %s; want %s", tt.input, result, tt.expected)
+		}
+	}
+}

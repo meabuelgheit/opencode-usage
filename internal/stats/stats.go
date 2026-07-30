@@ -52,6 +52,12 @@ func GetSessions(db *sql.DB, limit int, daysAgo int) ([]SessionRow, error) {
 		r.Date = time.UnixMilli(ts).Format("2006-01-02")
 		results = append(results, r)
 	}
+	for i := range results {
+		denom := results[i].InputTokens + results[i].CacheRead
+		if denom > 0 {
+			results[i].CacheHitPct = float64(results[i].CacheRead) / float64(denom) * 100
+		}
+	}
 	return results, rows.Err()
 }
 
@@ -84,6 +90,15 @@ func GetDaily(db *sql.DB, daysAgo int) ([]DailyRow, error) {
 			return nil, fmt.Errorf("scan daily: %w", err)
 		}
 		results = append(results, r)
+	}
+	for i := range results {
+		denom := results[i].InputTokens + results[i].CacheRead
+		if denom > 0 {
+			results[i].CacheHitPct = float64(results[i].CacheRead) / float64(denom) * 100
+		}
+		if results[i].InputTokens > 0 {
+			results[i].CacheWritePct = float64(results[i].CacheWrite) / float64(results[i].InputTokens) * 100
+		}
 	}
 	return results, rows.Err()
 }
@@ -131,6 +146,15 @@ func GetModels(db *sql.DB, daysAgo int) ([]ModelRow, error) {
 			return nil, fmt.Errorf("scan models: %w", err)
 		}
 		results = append(results, r)
+	}
+	for i := range results {
+		denom := results[i].InputTokens + results[i].CacheRead
+		if denom > 0 {
+			results[i].CacheHitPct = float64(results[i].CacheRead) / float64(denom) * 100
+		}
+		if results[i].InputTokens > 0 {
+			results[i].CacheWritePct = float64(results[i].CacheWrite) / float64(results[i].InputTokens) * 100
+		}
 	}
 	return results, rows.Err()
 }
@@ -196,6 +220,15 @@ func GetSummary(db *sql.DB) (*SummaryRow, error) {
 	if err != nil {
 		return nil, fmt.Errorf("query summary: %w", err)
 	}
+
+	denom := r.TotalInputTokens + r.TotalCacheRead
+	if denom > 0 {
+		r.CacheHitPct = float64(r.TotalCacheRead) / float64(denom) * 100
+	}
+	if r.TotalInputTokens > 0 {
+		r.CacheWritePct = float64(r.TotalCacheWrite) / float64(r.TotalInputTokens) * 100
+	}
+
 	return &r, nil
 }
 

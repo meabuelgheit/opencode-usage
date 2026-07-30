@@ -9,29 +9,34 @@ type SessionRow struct {
 	InputTokens int64   // tokens_input
 	OutputTokens int64  // tokens_output
 	CacheRead   int64   // tokens_cache_read
+	CacheHitPct float64 // cache_read / (input + cache_read) * 100
 	Cost        float64 // cost in dollars
 }
 
 // DailyRow represents daily aggregated stats.
 type DailyRow struct {
-	Date        string
-	Sessions    int
-	InputTokens int64
-	OutputTokens int64
-	CacheRead   int64
-	CacheWrite  int64
-	Cost        float64
+	Date          string
+	Sessions      int
+	InputTokens   int64
+	OutputTokens  int64
+	CacheRead     int64
+	CacheWrite    int64
+	CacheHitPct   float64 // cache_read / (input + cache_read) * 100
+	CacheWritePct float64 // cache_write / input * 100
+	Cost          float64
 }
 
 // ModelRow represents per-model breakdown.
 type ModelRow struct {
-	Model       string
-	Sessions    int
-	InputTokens int64
-	OutputTokens int64
-	CacheRead   int64
-	CacheWrite  int64
-	Cost        float64
+	Model         string
+	Sessions      int
+	InputTokens   int64
+	OutputTokens  int64
+	CacheRead     int64
+	CacheWrite    int64
+	CacheHitPct   float64 // cache_read / (input + cache_read) * 100
+	CacheWritePct float64 // cache_write / input * 100
+	Cost          float64
 }
 
 // AgentRow represents per-agent breakdown.
@@ -52,6 +57,8 @@ type SummaryRow struct {
 	TotalCacheRead   int64
 	TotalCacheWrite  int64
 	TotalCost        float64
+	CacheHitPct      float64 // aggregate
+	CacheWritePct    float64 // aggregate
 }
 
 // ProjectRow represents per-project breakdown.
