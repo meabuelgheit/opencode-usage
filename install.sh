@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-REPO="abuelgheit/opencode-stats"
-BIN="opencode-stats"
+REPO="abuelgheit/opencode-usage"
+BIN="opencode-usage"
 INSTALL_DIR="${HOME}/.local/bin"
 
 # Detect OS and arch
@@ -21,7 +21,7 @@ if [ -z "$LATEST" ]; then
     exit 1
 fi
 
-echo "Installing opencode-stats ${LATEST} for ${OS}/${ARCH}..."
+echo "Installing opencode-usage ${LATEST} for ${OS}/${ARCH}..."
 
 # Download
 URL="https://github.com/${REPO}/releases/download/${LATEST}/${BIN}_${OS}_${ARCH}.tar.gz"

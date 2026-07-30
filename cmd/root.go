@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/abuelgheit/opencode-stats/internal/db"
-	"github.com/abuelgheit/opencode-stats/internal/stats"
+	"github.com/abuelgheit/opencode-usage/internal/db"
+	"github.com/abuelgheit/opencode-usage/internal/stats"
 )
 
 var (
@@ -27,9 +27,9 @@ func openDB() (*sql.DB, error) {
 // Execute runs the root command.
 func Execute() {
 	rootCmd := &cobra.Command{
-		Use:   "opencode-stats",
+		Use:   "opencode-usage",
 		Short: "Display OpenCode usage statistics",
-		Long:  `opencode-stats reads the OpenCode SQLite database and displays usage statistics including sessions, token counts, costs, and breakdowns by model, agent, and project.`,
+		Long:  `opencode-usage reads the OpenCode SQLite database and displays usage statistics including sessions, token counts, costs, and breakdowns by model, agent, and project.`,
 	}
 
 	rootCmd.PersistentFlags().StringVar(&dbPath, "db", stats.DefaultDBPath(), "Path to opencode database")

@@ -1,4 +1,4 @@
-module github.com/abuelgheit/opencode-stats
+module github.com/abuelgheit/opencode-usage
 
 go 1.23
 

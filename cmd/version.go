@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/abuelgheit/opencode-stats/internal/version"
+	"github.com/abuelgheit/opencode-usage/internal/version"
 )
 
 func newVersionCmd() *cobra.Command {
@@ -12,7 +12,7 @@ func newVersionCmd() *cobra.Command {
 		Use:   "version",
 		Short: "Print version",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("opencode-stats", version.String())
+			fmt.Println("opencode-usage", version.String())
 		},
 	}
 }

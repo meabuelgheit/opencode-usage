@@ -6,8 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/abuelgheit/opencode-stats/internal/display"
-	"github.com/abuelgheit/opencode-stats/internal/stats"
+	"github.com/abuelgheit/opencode-usage/internal/display"
+	"github.com/abuelgheit/opencode-usage/internal/stats"
 )
 
 func newSummaryCmd() *cobra.Command {

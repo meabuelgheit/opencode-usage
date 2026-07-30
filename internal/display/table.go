@@ -8,7 +8,7 @@ import (
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
 
-	"github.com/abuelgheit/opencode-stats/internal/stats"
+	"github.com/abuelgheit/opencode-usage/internal/stats"
 )
 
 func newTable() table.Writer {

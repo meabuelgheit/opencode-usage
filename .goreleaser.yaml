@@ -14,8 +14,8 @@ builds:
       - amd64
       - arm64
     ldflags:
-      - -s -w -X github.com/abuelgheit/opencode-stats/internal/version.Version={{.Version}}
-    binary: opencode-stats
+      - -s -w -X github.com/abuelgheit/opencode-usage/internal/version.Version={{.Version}}
+    binary: opencode-usage
 
 archives:
   - format: tar.gz
@@ -29,4 +29,4 @@ checksum:
 release:
   github:
     owner: abuelgheit
-    name: opencode-stats
+    name: opencode-usage

@@ -1,4 +1,4 @@
-APP_NAME := opencode-stats
+APP_NAME := opencode-usage
 BUILD_DIR := bin
 INSTALL_DIR := $(HOME)/.local/bin
 
