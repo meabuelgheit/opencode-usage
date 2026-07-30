@@ -11,20 +11,18 @@ import (
 	"github.com/abuelgheit/opencode-stats/internal/stats"
 )
 
-// num formats an int64 with thousands separators.
+// num formats an int64 with human-readable suffixes (K, M, B).
 func num(n int64) string {
-	s := fmt.Sprintf("%d", n)
-	if len(s) <= 3 {
-		return s
+	switch {
+	case n < 1000:
+		return fmt.Sprintf("%d", n)
+	case n < 1000000:
+		return fmt.Sprintf("%.2fK", float64(n)/1000)
+	case n < 1000000000:
+		return fmt.Sprintf("%.2fM", float64(n)/1000000)
+	default:
+		return fmt.Sprintf("%.2fB", float64(n)/1000000000)
 	}
-	var result strings.Builder
-	for i, c := range s {
-		if i > 0 && (len(s)-i)%3 == 0 {
-			result.WriteByte(',')
-		}
-		result.WriteRune(c)
-	}
-	return result.String()
 }
 
 // cost formats a float as dollar amount.
