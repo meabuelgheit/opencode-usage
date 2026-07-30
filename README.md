@@ -1,5 +1,7 @@
 # opencode-usage
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A CLI tool to display usage statistics from the OpenCode SQLite database. It reads `~/.local/share/opencode/opencode.db` and provides formatted tables showing session details, daily aggregates, breakdowns by model/agent/project, and all-time summary statistics.
 
 ## Installation
@@ -149,3 +151,7 @@ Run tests:
 ```bash
 go test ./... -v -cover
 ```
+
+## License
+
+MIT © [Abuelgheit](https://github.com/abuelgheit)
