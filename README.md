@@ -4,15 +4,26 @@ A CLI tool to display usage statistics from the OpenCode SQLite database. It rea
 
 ## Installation
 
+### Option 1: Go install (requires Go 1.23+)
+
 ```bash
-# Build and install to ~/.local/bin
-make install
+go install github.com/abuelgheit/opencode-stats@latest
 ```
 
-Or build manually:
+### Option 2: One-liner (no Go needed)
 
 ```bash
-go build -o opencode-stats .
+curl -sSL https://raw.githubusercontent.com/abuelgheit/opencode-stats/main/install.sh | bash
+```
+
+### Option 3: Manual download
+
+Download the latest binary from [GitHub Releases](https://github.com/abuelgheit/opencode-stats/releases).
+
+### Verify
+
+```bash
+opencode-stats version
 ```
 
 ## Usage

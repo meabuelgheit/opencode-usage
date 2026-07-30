@@ -40,6 +40,7 @@ func Execute() {
 	rootCmd.AddCommand(newAgentsCmd())
 	rootCmd.AddCommand(newSummaryCmd())
 	rootCmd.AddCommand(newProjectsCmd())
+	rootCmd.AddCommand(newVersionCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
