@@ -1,0 +1,203 @@
+package display
+
+import (
+	"fmt"
+	"os"
+	"strings"
+
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/jedib0t/go-pretty/v6/text"
+
+	"github.com/abuelgheit/opencode-stats/internal/stats"
+)
+
+// num formats an int64 with thousands separators.
+func num(n int64) string {
+	s := fmt.Sprintf("%d", n)
+	if len(s) <= 3 {
+		return s
+	}
+	var result strings.Builder
+	for i, c := range s {
+		if i > 0 && (len(s)-i)%3 == 0 {
+			result.WriteByte(',')
+		}
+		result.WriteRune(c)
+	}
+	return result.String()
+}
+
+// cost formats a float as dollar amount.
+func costStr(c float64) string {
+	return fmt.Sprintf("$%.2f", c)
+}
+
+// modelShort shortens a model name for display (take last 2 segments).
+func modelShort(m string) string {
+	parts := strings.Split(m, "/")
+	if len(parts) > 2 {
+		parts = parts[len(parts)-2:]
+	}
+	return strings.Join(parts, "/")
+}
+
+// PrintSessions renders session rows as a table.
+func PrintSessions(rows []stats.SessionRow) {
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.SetStyle(table.StyleColoredBright)
+	t.AppendHeader(table.Row{"Date", "Session", "Agent", "Model", "Input", "Output", "Cache Read", "Cost"})
+
+	for _, r := range rows {
+		t.AppendRow(table.Row{
+			r.Date,
+			r.Slug,
+			r.Agent,
+			modelShort(r.Model),
+			num(r.InputTokens),
+			num(r.OutputTokens),
+			num(r.CacheRead),
+			costStr(r.Cost),
+		})
+	}
+
+	t.SetColumnConfigs([]table.ColumnConfig{
+		{Number: 5, Align: text.AlignRight},
+		{Number: 6, Align: text.AlignRight},
+		{Number: 7, Align: text.AlignRight},
+		{Number: 8, Align: text.AlignRight},
+	})
+
+	t.Render()
+}
+
+// PrintDaily renders daily aggregate rows as a table.
+func PrintDaily(rows []stats.DailyRow) {
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.SetStyle(table.StyleColoredBright)
+	t.AppendHeader(table.Row{"Date", "Sessions", "Input", "Output", "Cache Read", "Cache Write", "Cost"})
+
+	for _, r := range rows {
+		t.AppendRow(table.Row{
+			r.Date, r.Sessions,
+			num(r.InputTokens), num(r.OutputTokens),
+			num(r.CacheRead), num(r.CacheWrite),
+			costStr(r.Cost),
+		})
+	}
+
+	t.SetColumnConfigs([]table.ColumnConfig{
+		{Number: 3, Align: text.AlignRight},
+		{Number: 4, Align: text.AlignRight},
+		{Number: 5, Align: text.AlignRight},
+		{Number: 6, Align: text.AlignRight},
+		{Number: 7, Align: text.AlignRight},
+	})
+
+	t.Render()
+}
+
+// PrintModels renders model breakdown rows as a table.
+func PrintModels(rows []stats.ModelRow) {
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.SetStyle(table.StyleColoredBright)
+	t.AppendHeader(table.Row{"Model", "Sessions", "Input", "Output", "Cache Read", "Cache Write", "Cost"})
+
+	for _, r := range rows {
+		t.AppendRow(table.Row{
+			modelShort(r.Model), r.Sessions,
+			num(r.InputTokens), num(r.OutputTokens),
+			num(r.CacheRead), num(r.CacheWrite),
+			costStr(r.Cost),
+		})
+	}
+
+	t.SetColumnConfigs([]table.ColumnConfig{
+		{Number: 3, Align: text.AlignRight},
+		{Number: 4, Align: text.AlignRight},
+		{Number: 5, Align: text.AlignRight},
+		{Number: 6, Align: text.AlignRight},
+		{Number: 7, Align: text.AlignRight},
+	})
+
+	t.Render()
+}
+
+// PrintAgents renders agent breakdown rows as a table.
+func PrintAgents(rows []stats.AgentRow) {
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.SetStyle(table.StyleColoredBright)
+	t.AppendHeader(table.Row{"Agent", "Sessions", "Input", "Output", "Cost"})
+
+	for _, r := range rows {
+		t.AppendRow(table.Row{
+			r.Agent, r.Sessions,
+			num(r.InputTokens), num(r.OutputTokens),
+			costStr(r.Cost),
+		})
+	}
+
+	t.SetColumnConfigs([]table.ColumnConfig{
+		{Number: 3, Align: text.AlignRight},
+		{Number: 4, Align: text.AlignRight},
+		{Number: 5, Align: text.AlignRight},
+	})
+
+	t.Render()
+}
+
+// PrintSummary renders the all-time summary as a single-row table.
+func PrintSummary(s *stats.SummaryRow) {
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.SetStyle(table.StyleColoredBright)
+
+	t.AppendHeader(table.Row{"Metric", "Value"})
+	t.AppendRows([]table.Row{
+		{"Total Sessions", s.TotalSessions},
+		{"Active Days", s.ActiveDays},
+		{"Total Input Tokens", num(s.TotalInputTokens)},
+		{"Total Output Tokens", num(s.TotalOutputTokens)},
+		{"Total Cache Read", num(s.TotalCacheRead)},
+		{"Total Cache Write", num(s.TotalCacheWrite)},
+		{"Total Cost", costStr(s.TotalCost)},
+	})
+
+	t.SetColumnConfigs([]table.ColumnConfig{
+		{Number: 2, Align: text.AlignRight},
+	})
+
+	t.Render()
+}
+
+// PrintProjects renders project breakdown rows as a table.
+func PrintProjects(rows []stats.ProjectRow) {
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.SetStyle(table.StyleColoredBright)
+	t.AppendHeader(table.Row{"Project", "Sessions", "Input", "Output", "Cost"})
+
+	for _, r := range rows {
+		// Truncate long project paths
+		proj := r.Project
+		if len(proj) > 50 {
+			proj = "..." + proj[len(proj)-47:]
+		}
+		t.AppendRow(table.Row{
+			proj, r.Sessions,
+			num(r.InputTokens), num(r.OutputTokens),
+			costStr(r.Cost),
+		})
+	}
+
+	t.SetColumnConfigs([]table.ColumnConfig{
+		{Number: 3, Align: text.AlignRight},
+		{Number: 4, Align: text.AlignRight},
+		{Number: 5, Align: text.AlignRight},
+	})
+
+	t.Render()
+}
