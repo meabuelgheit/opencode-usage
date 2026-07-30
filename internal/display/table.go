@@ -16,6 +16,7 @@ func newTable() table.Writer {
 	t.SetOutputMirror(os.Stdout)
 	t.SetStyle(table.StyleDefault)
 	t.Style().Color.RowAlternate = text.Colors{text.Faint}
+	t.Style().Options.SeparateFooter = true
 	return t
 }
 
@@ -83,6 +84,27 @@ func PrintSessions(rows []stats.SessionRow) {
 		{Number: 11, Align: text.AlignRight},
 	})
 
+	var (
+		totInput, totOutput, totCacheRead, totTotal int64
+		totCost                                     float64
+	)
+	for _, r := range rows {
+		totInput += r.InputTokens
+		totOutput += r.OutputTokens
+		totCacheRead += r.CacheRead
+		totTotal += r.TotalTokens
+		totCost += r.Cost
+	}
+	totReadPct := 0.0
+	if totTotal > 0 {
+		totReadPct = float64(totCacheRead) / float64(totTotal) * 100
+	}
+	t.AppendFooter(table.Row{
+		fmt.Sprintf("TOTAL (%d)", len(rows)), "", "", "",
+		num(totInput), num(totOutput), num(totTotal),
+		num(totCacheRead), pctStr(totReadPct), costStr(totCost),
+	})
+
 	t.Render()
 }
 
@@ -111,6 +133,35 @@ func PrintDaily(rows []stats.DailyRow) {
 		{Number: 9, Align: text.AlignRight},
 		{Number: 10, Align: text.AlignRight},
 		{Number: 11, Align: text.AlignRight},
+	})
+
+	var (
+		totSessions, totMessages                    int
+		totInput, totOutput, totCacheRead, totCacheWrite, totTotal int64
+		totCost                                                     float64
+	)
+	for _, r := range rows {
+		totSessions += r.Sessions
+		totMessages += r.MessageCount
+		totInput += r.InputTokens
+		totOutput += r.OutputTokens
+		totCacheRead += r.CacheRead
+		totCacheWrite += r.CacheWrite
+		totTotal += r.TotalTokens
+		totCost += r.Cost
+	}
+	totReadPct := 0.0
+	totWritePct := 0.0
+	if totTotal > 0 {
+		totReadPct = float64(totCacheRead) / float64(totTotal) * 100
+		totWritePct = float64(totCacheWrite) / float64(totTotal) * 100
+	}
+
+	t.AppendFooter(table.Row{
+		"TOTAL", totSessions, totMessages,
+		num(totInput), num(totOutput), num(totTotal),
+		num(totCacheRead), num(totCacheWrite),
+		pctStr(totReadPct), pctStr(totWritePct), costStr(totCost),
 	})
 
 	t.Render()
@@ -143,6 +194,35 @@ func PrintModels(rows []stats.ModelRow) {
 		{Number: 11, Align: text.AlignRight},
 	})
 
+	var (
+		totSessions, totMessages                    int
+		totInput, totOutput, totCacheRead, totCacheWrite, totTotal int64
+		totCost                                                     float64
+	)
+	for _, r := range rows {
+		totSessions += r.Sessions
+		totMessages += r.MessageCount
+		totInput += r.InputTokens
+		totOutput += r.OutputTokens
+		totCacheRead += r.CacheRead
+		totCacheWrite += r.CacheWrite
+		totTotal += r.TotalTokens
+		totCost += r.Cost
+	}
+	totReadPct := 0.0
+	totWritePct := 0.0
+	if totTotal > 0 {
+		totReadPct = float64(totCacheRead) / float64(totTotal) * 100
+		totWritePct = float64(totCacheWrite) / float64(totTotal) * 100
+	}
+
+	t.AppendFooter(table.Row{
+		"TOTAL", totSessions, totMessages,
+		num(totInput), num(totOutput), num(totTotal),
+		num(totCacheRead), num(totCacheWrite),
+		pctStr(totReadPct), pctStr(totWritePct), costStr(totCost),
+	})
+
 	t.Render()
 }
 
@@ -168,6 +248,31 @@ func PrintAgents(rows []stats.AgentRow) {
 		{Number: 7, Align: text.AlignRight},
 		{Number: 8, Align: text.AlignRight},
 		{Number: 9, Align: text.AlignRight},
+	})
+
+	var (
+		totSessions, totMessages                int
+		totInput, totOutput, totCacheRead, totTotal int64
+		totCost                                     float64
+	)
+	for _, r := range rows {
+		totSessions += r.Sessions
+		totMessages += r.MessageCount
+		totInput += r.InputTokens
+		totOutput += r.OutputTokens
+		totCacheRead += r.CacheRead
+		totTotal += r.TotalTokens
+		totCost += r.Cost
+	}
+	totReadPct := 0.0
+	if totTotal > 0 {
+		totReadPct = float64(totCacheRead) / float64(totTotal) * 100
+	}
+
+	t.AppendFooter(table.Row{
+		"TOTAL", totSessions, totMessages,
+		num(totInput), num(totOutput), num(totTotal),
+		num(totCacheRead), pctStr(totReadPct), costStr(totCost),
 	})
 
 	t.Render()
@@ -220,6 +325,24 @@ func PrintProjects(rows []stats.ProjectRow) {
 		{Number: 4, Align: text.AlignRight},
 		{Number: 5, Align: text.AlignRight},
 		{Number: 6, Align: text.AlignRight},
+	})
+
+	var (
+		totSessions, totMessages  int
+		totInput, totOutput       int64
+		totCost                   float64
+	)
+	for _, r := range rows {
+		totSessions += r.Sessions
+		totMessages += r.MessageCount
+		totInput += r.InputTokens
+		totOutput += r.OutputTokens
+		totCost += r.Cost
+	}
+
+	t.AppendFooter(table.Row{
+		"TOTAL", totSessions, totMessages,
+		num(totInput), num(totOutput), costStr(totCost),
 	})
 
 	t.Render()
