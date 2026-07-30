@@ -53,9 +53,9 @@ func GetSessions(db *sql.DB, limit int, daysAgo int) ([]SessionRow, error) {
 		results = append(results, r)
 	}
 	for i := range results {
-		denom := results[i].InputTokens + results[i].CacheRead
-		if denom > 0 {
-			results[i].CacheHitPct = float64(results[i].CacheRead) / float64(denom) * 100
+		results[i].TotalTokens = results[i].InputTokens + results[i].CacheRead
+		if results[i].TotalTokens > 0 {
+			results[i].CacheReadPct = float64(results[i].CacheRead) / float64(results[i].TotalTokens) * 100
 		}
 	}
 	return results, rows.Err()
@@ -92,12 +92,10 @@ func GetDaily(db *sql.DB, daysAgo int) ([]DailyRow, error) {
 		results = append(results, r)
 	}
 	for i := range results {
-		denom := results[i].InputTokens + results[i].CacheRead
-		if denom > 0 {
-			results[i].CacheHitPct = float64(results[i].CacheRead) / float64(denom) * 100
-		}
-		if results[i].InputTokens > 0 {
-			results[i].CacheWritePct = float64(results[i].CacheWrite) / float64(results[i].InputTokens) * 100
+		results[i].TotalTokens = results[i].InputTokens + results[i].CacheRead
+		if results[i].TotalTokens > 0 {
+			results[i].CacheReadPct = float64(results[i].CacheRead) / float64(results[i].TotalTokens) * 100
+			results[i].CacheWritePct = float64(results[i].CacheWrite) / float64(results[i].TotalTokens) * 100
 		}
 	}
 	return results, rows.Err()
@@ -148,12 +146,10 @@ func GetModels(db *sql.DB, daysAgo int) ([]ModelRow, error) {
 		results = append(results, r)
 	}
 	for i := range results {
-		denom := results[i].InputTokens + results[i].CacheRead
-		if denom > 0 {
-			results[i].CacheHitPct = float64(results[i].CacheRead) / float64(denom) * 100
-		}
-		if results[i].InputTokens > 0 {
-			results[i].CacheWritePct = float64(results[i].CacheWrite) / float64(results[i].InputTokens) * 100
+		results[i].TotalTokens = results[i].InputTokens + results[i].CacheRead
+		if results[i].TotalTokens > 0 {
+			results[i].CacheReadPct = float64(results[i].CacheRead) / float64(results[i].TotalTokens) * 100
+			results[i].CacheWritePct = float64(results[i].CacheWrite) / float64(results[i].TotalTokens) * 100
 		}
 	}
 	return results, rows.Err()
@@ -221,12 +217,10 @@ func GetSummary(db *sql.DB) (*SummaryRow, error) {
 		return nil, fmt.Errorf("query summary: %w", err)
 	}
 
-	denom := r.TotalInputTokens + r.TotalCacheRead
-	if denom > 0 {
-		r.CacheHitPct = float64(r.TotalCacheRead) / float64(denom) * 100
-	}
-	if r.TotalInputTokens > 0 {
-		r.CacheWritePct = float64(r.TotalCacheWrite) / float64(r.TotalInputTokens) * 100
+	totalTokens := r.TotalInputTokens + r.TotalCacheRead
+	if totalTokens > 0 {
+		r.CacheReadPct = float64(r.TotalCacheRead) / float64(totalTokens) * 100
+		r.CacheWritePct = float64(r.TotalCacheWrite) / float64(totalTokens) * 100
 	}
 
 	return &r, nil

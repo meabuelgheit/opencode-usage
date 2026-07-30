@@ -9,8 +9,9 @@ type SessionRow struct {
 	InputTokens int64   // tokens_input
 	OutputTokens int64  // tokens_output
 	CacheRead   int64   // tokens_cache_read
-	CacheHitPct float64 // cache_read / (input + cache_read) * 100
-	Cost        float64 // cost in dollars
+	TotalTokens int64   // input + cache_read (effective prompt size)
+	CacheReadPct float64 // cache_read / (input + cache_read) * 100
+	Cost         float64 // cost in dollars
 }
 
 // DailyRow represents daily aggregated stats.
@@ -21,8 +22,9 @@ type DailyRow struct {
 	OutputTokens  int64
 	CacheRead     int64
 	CacheWrite    int64
-	CacheHitPct   float64 // cache_read / (input + cache_read) * 100
-	CacheWritePct float64 // cache_write / input * 100
+	TotalTokens   int64 // input + cache_read
+	CacheReadPct  float64 // cache_read / (input + cache_read) * 100
+	CacheWritePct float64 // cache_write / total * 100
 	Cost          float64
 }
 
@@ -34,8 +36,9 @@ type ModelRow struct {
 	OutputTokens  int64
 	CacheRead     int64
 	CacheWrite    int64
-	CacheHitPct   float64 // cache_read / (input + cache_read) * 100
-	CacheWritePct float64 // cache_write / input * 100
+	TotalTokens   int64 // input + cache_read
+	CacheReadPct  float64 // cache_read / (input + cache_read) * 100
+	CacheWritePct float64 // cache_write / total * 100
 	Cost          float64
 }
 
@@ -57,7 +60,7 @@ type SummaryRow struct {
 	TotalCacheRead   int64
 	TotalCacheWrite  int64
 	TotalCost        float64
-	CacheHitPct      float64 // aggregate
+	CacheReadPct     float64 // aggregate
 	CacheWritePct    float64 // aggregate
 }
 

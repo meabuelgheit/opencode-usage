@@ -106,10 +106,18 @@ func TestGetSessions(t *testing.T) {
 		}
 	}
 
-	// Check CacheHitPct is computed for rows with cache reads
+	// Check TotalTokens = InputTokens + CacheRead
 	for _, r := range rows {
-		if r.CacheRead > 0 && r.CacheHitPct <= 0 {
-			t.Errorf("expected positive CacheHitPct for row with cache reads, got %.1f", r.CacheHitPct)
+		expectedTotal := r.InputTokens + r.CacheRead
+		if r.TotalTokens != expectedTotal {
+			t.Errorf("expected TotalTokens %d, got %d (input=%d, cache_read=%d)", expectedTotal, r.TotalTokens, r.InputTokens, r.CacheRead)
+		}
+	}
+
+	// Check CacheReadPct is computed for rows with cache reads
+	for _, r := range rows {
+		if r.CacheRead > 0 && r.CacheReadPct <= 0 {
+			t.Errorf("expected positive CacheReadPct for row with cache reads, got %.1f", r.CacheReadPct)
 		}
 	}
 }
@@ -179,9 +187,15 @@ func TestGetDaily(t *testing.T) {
 				t.Errorf("expected 0.03 cost for day with 2 sessions, got %.2f", r.Cost)
 			}
 		}
+		// Check TotalTokens = InputTokens + CacheRead
+		expectedTotal := r.InputTokens + r.CacheRead
+		if r.TotalTokens != expectedTotal {
+			t.Errorf("expected TotalTokens %d, got %d (input=%d, cache_read=%d)", expectedTotal, r.TotalTokens, r.InputTokens, r.CacheRead)
+		}
+
 		// Check cache percentages are computed for days with cache data
-		if r.CacheRead > 0 && r.CacheHitPct <= 0 {
-			t.Errorf("expected positive CacheHitPct, got %.1f", r.CacheHitPct)
+		if r.CacheRead > 0 && r.CacheReadPct <= 0 {
+			t.Errorf("expected positive CacheReadPct, got %.1f", r.CacheReadPct)
 		}
 		if r.CacheWrite > 0 && r.CacheWritePct <= 0 {
 			t.Errorf("expected positive CacheWritePct, got %.1f", r.CacheWritePct)
@@ -234,9 +248,15 @@ func TestGetModels(t *testing.T) {
 				t.Errorf("expected unknown model to have 1 session, got %d", r.Sessions)
 			}
 		}
+		// Check TotalTokens = InputTokens + CacheRead
+		expectedTotal := r.InputTokens + r.CacheRead
+		if r.TotalTokens != expectedTotal {
+			t.Errorf("expected TotalTokens %d, got %d (input=%d, cache_read=%d)", expectedTotal, r.TotalTokens, r.InputTokens, r.CacheRead)
+		}
+
 		// Verify cache percentages are computed
-		if r.CacheRead > 0 && r.CacheHitPct <= 0 {
-			t.Errorf("expected positive CacheHitPct for model %s, got %.1f", r.Model, r.CacheHitPct)
+		if r.CacheRead > 0 && r.CacheReadPct <= 0 {
+			t.Errorf("expected positive CacheReadPct for model %s, got %.1f", r.Model, r.CacheReadPct)
 		}
 		if r.CacheWrite > 0 && r.CacheWritePct <= 0 {
 			t.Errorf("expected positive CacheWritePct for model %s, got %.1f", r.Model, r.CacheWritePct)
@@ -334,21 +354,21 @@ func TestGetSummary(t *testing.T) {
 		t.Errorf("expected %.2f total cost, got %.2f", expectedCost, summary.TotalCost)
 	}
 
-	if summary.CacheHitPct <= 0 {
-		t.Errorf("expected positive CacheHitPct, got %.1f", summary.CacheHitPct)
+	if summary.CacheReadPct <= 0 {
+		t.Errorf("expected positive CacheReadPct, got %.1f", summary.CacheReadPct)
 	}
 	if summary.CacheWritePct <= 0 {
 		t.Errorf("expected positive CacheWritePct, got %.1f", summary.CacheWritePct)
 	}
 
 	// Verify specific values: total cache read = 60, total input = 600, total cache write = 30
-	// CacheHitPct = 60 / (600 + 60) * 100 = 60/660*100 ≈ 9.1%
-	expectedHitPct := float64(60) / float64(600+60) * 100
-	if summary.CacheHitPct != expectedHitPct {
-		t.Errorf("expected CacheHitPct %.1f, got %.1f", expectedHitPct, summary.CacheHitPct)
+	// CacheReadPct = 60 / (600 + 60) * 100 = 60/660*100 ≈ 9.1%
+	expectedReadPct := float64(60) / float64(600+60) * 100
+	if summary.CacheReadPct != expectedReadPct {
+		t.Errorf("expected CacheReadPct %.1f, got %.1f", expectedReadPct, summary.CacheReadPct)
 	}
-	// CacheWritePct = 30 / 600 * 100 = 5.0%
-	expectedWritePct := float64(30) / float64(600) * 100
+	// CacheWritePct = 30 / (600 + 60) * 100 = 30/660*100 ≈ 4.5%
+	expectedWritePct := float64(30) / float64(600+60) * 100
 	if summary.CacheWritePct != expectedWritePct {
 		t.Errorf("expected CacheWritePct %.1f, got %.1f", expectedWritePct, summary.CacheWritePct)
 	}
@@ -369,8 +389,8 @@ func TestGetSummary_EmptyDB(t *testing.T) {
 	if summary.ActiveDays != 0 {
 		t.Errorf("expected 0 active days, got %d", summary.ActiveDays)
 	}
-	if summary.CacheHitPct != 0 {
-		t.Errorf("expected 0 CacheHitPct for empty DB, got %.1f", summary.CacheHitPct)
+	if summary.CacheReadPct != 0 {
+		t.Errorf("expected 0 CacheReadPct for empty DB, got %.1f", summary.CacheReadPct)
 	}
 	if summary.CacheWritePct != 0 {
 		t.Errorf("expected 0 CacheWritePct for empty DB, got %.1f", summary.CacheWritePct)
