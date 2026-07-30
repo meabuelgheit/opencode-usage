@@ -450,6 +450,18 @@ func TestGetAgents(t *testing.T) {
 		if r.Agent == "coder" && r.MessageCount != 3 {
 			t.Errorf("expected MessageCount 3 for coder, got %d", r.MessageCount)
 		}
+		// Check TotalTokens = InputTokens + CacheRead
+		expectedTotal := r.InputTokens + r.CacheRead
+		if r.TotalTokens != expectedTotal {
+			t.Errorf("expected TotalTokens %d, got %d (input=%d, cache_read=%d)", expectedTotal, r.TotalTokens, r.InputTokens, r.CacheRead)
+		}
+		// Verify cache percentages are computed for rows with cache data
+		if r.CacheRead > 0 && r.CacheReadPct <= 0 {
+			t.Errorf("expected positive CacheReadPct for agent %s, got %.1f", r.Agent, r.CacheReadPct)
+		}
+		if r.CacheWrite > 0 && r.CacheWritePct <= 0 {
+			t.Errorf("expected positive CacheWritePct for agent %s, got %.1f", r.Agent, r.CacheWritePct)
+		}
 	}
 
 	// Check unknown agent

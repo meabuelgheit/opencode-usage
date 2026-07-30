@@ -171,6 +171,7 @@ func GetAgents(db *sql.DB, daysAgo int) ([]AgentRow, error) {
 			SELECT COALESCE(s.agent, 'unknown'),
 			       COUNT(*) as sessions,
 			       SUM(s.tokens_input), SUM(s.tokens_output),
+			       SUM(s.tokens_cache_read), SUM(s.tokens_cache_write),
 			       SUM(s.cost),
 			       SUM((SELECT COUNT(*) FROM message WHERE message.session_id = s.id)) as msg_count
 			FROM session s
@@ -183,6 +184,7 @@ func GetAgents(db *sql.DB, daysAgo int) ([]AgentRow, error) {
 			SELECT COALESCE(s.agent, 'unknown'),
 			       COUNT(*) as sessions,
 			       SUM(s.tokens_input), SUM(s.tokens_output),
+			       SUM(s.tokens_cache_read), SUM(s.tokens_cache_write),
 			       SUM(s.cost),
 			       SUM((SELECT COUNT(*) FROM message WHERE message.session_id = s.id)) as msg_count
 			FROM session s
@@ -198,10 +200,18 @@ func GetAgents(db *sql.DB, daysAgo int) ([]AgentRow, error) {
 	var results []AgentRow
 	for rows.Next() {
 		var r AgentRow
-		if err := rows.Scan(&r.Agent, &r.Sessions, &r.InputTokens, &r.OutputTokens, &r.Cost, &r.MessageCount); err != nil {
+		if err := rows.Scan(&r.Agent, &r.Sessions, &r.InputTokens, &r.OutputTokens,
+			&r.CacheRead, &r.CacheWrite, &r.Cost, &r.MessageCount); err != nil {
 			return nil, fmt.Errorf("scan agents: %w", err)
 		}
 		results = append(results, r)
+	}
+	for i := range results {
+		results[i].TotalTokens = results[i].InputTokens + results[i].CacheRead
+		if results[i].TotalTokens > 0 {
+			results[i].CacheReadPct = float64(results[i].CacheRead) / float64(results[i].TotalTokens) * 100
+			results[i].CacheWritePct = float64(results[i].CacheWrite) / float64(results[i].TotalTokens) * 100
+		}
 	}
 	return results, rows.Err()
 }

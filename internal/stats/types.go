@@ -47,12 +47,17 @@ type ModelRow struct {
 
 // AgentRow represents per-agent breakdown.
 type AgentRow struct {
-	Agent       string
-	Sessions    int
-	InputTokens int64
-	OutputTokens int64
-	Cost         float64
-	MessageCount int
+	Agent         string
+	Sessions      int
+	InputTokens   int64
+	OutputTokens  int64
+	CacheRead     int64
+	CacheWrite    int64
+	TotalTokens   int64   // InputTokens + CacheRead (computed in Go)
+	CacheReadPct  float64 // CacheRead / TotalTokens * 100
+	CacheWritePct float64 // CacheWrite / TotalTokens * 100
+	Cost          float64
+	MessageCount  int
 }
 
 // SummaryRow represents all-time totals.

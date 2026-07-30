@@ -149,22 +149,25 @@ func PrintAgents(rows []stats.AgentRow) {
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
 	t.SetStyle(table.StyleDefault)
-	t.AppendHeader(table.Row{"Agent", "Sessions", "Input", "Output", "MESSAGES", "Cost"})
+	t.AppendHeader(table.Row{"Agent", "Sessions", "MESSAGES", "Input", "Output", "Total", "Cache Read", "Cache Read%", "Cost"})
 
 	for _, r := range rows {
 		t.AppendRow(table.Row{
-			r.Agent, r.Sessions,
+			r.Agent, r.Sessions, r.MessageCount,
 			num(r.InputTokens), num(r.OutputTokens),
-			r.MessageCount,
+			num(r.TotalTokens), num(r.CacheRead),
+			pctStr(r.CacheReadPct),
 			costStr(r.Cost),
 		})
 	}
 
 	t.SetColumnConfigs([]table.ColumnConfig{
-		{Number: 3, Align: text.AlignRight},
 		{Number: 4, Align: text.AlignRight},
 		{Number: 5, Align: text.AlignRight},
 		{Number: 6, Align: text.AlignRight},
+		{Number: 7, Align: text.AlignRight},
+		{Number: 8, Align: text.AlignRight},
+		{Number: 9, Align: text.AlignRight},
 	})
 
 	t.Render()
