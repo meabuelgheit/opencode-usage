@@ -328,6 +328,11 @@ func TestGetModels(t *testing.T) {
 		now.Add(-6*time.Hour).UnixMilli(), "s6", "coder", nil, 50, 25, 5, 2, 0.005, "/test")
 	id6, _ := r6.LastInsertId()
 
+	// 1 session with zero tokens (BlendCostPerM should be 0)
+	r7, _ := db.Exec(`INSERT INTO session (time_created, slug, agent, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, cost, directory) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+		now.Add(-7*time.Hour).UnixMilli(), "s7", "coder", "zero-tokens", 0, 0, 0, 0, 0.0, "/test")
+	_, _ = r7.LastInsertId()
+
 	// Add messages: 2 to gpt-4 s1, 4 to claude-3 s3, 1 to unknown s6
 	insertMessage(t, db, id1, 2)
 	insertMessage(t, db, id3, 4)
@@ -338,8 +343,8 @@ func TestGetModels(t *testing.T) {
 		t.Fatalf("GetModels failed: %v", err)
 	}
 
-	if len(rows) != 3 {
-		t.Errorf("expected 3 model rows, got %d", len(rows))
+	if len(rows) != 4 {
+		t.Errorf("expected 4 model rows, got %d", len(rows))
 	}
 
 	// claude-3 should be first (most sessions)
@@ -386,9 +391,36 @@ func TestGetModels(t *testing.T) {
 		if r.CacheWrite > 0 && r.CacheWritePct <= 0 {
 			t.Errorf("expected positive CacheWritePct for model %s, got %.1f", r.Model, r.CacheWritePct)
 		}
+
+		// Verify models with zero billed tokens have BlendCostPerM == 0
+		if r.InputTokens+r.OutputTokens == 0 && r.BlendCostPerM != 0 {
+			t.Errorf("expected BlendCostPerM 0 for model %s (zero tokens), got %.2f", r.Model, r.BlendCostPerM)
+		}
 	}
 	if !foundUnknown {
 		t.Error("expected unknown model row for empty model name")
+	}
+
+	// Verify BlendCostPerM for claude-3
+	// claude-3: input=300+400+500=1200, output=150+200+250=600, cache_read=30+40+50=120, cost=0.03+0.04+0.05=0.12
+	// total tokens = 1200+600+120 = 1920, so blend = 0.12 / (1920/1M) = 62.50
+	foundZeroTokens := false
+	for _, r := range rows {
+		if r.Model == "claude-3" {
+			expectedBlend := 0.12 / (float64(1920) / 1_000_000)
+			if r.BlendCostPerM != expectedBlend {
+				t.Errorf("expected BlendCostPerM %.2f for claude-3, got %.2f", expectedBlend, r.BlendCostPerM)
+			}
+		}
+		if r.Model == "zero-tokens" {
+			foundZeroTokens = true
+			if r.BlendCostPerM != 0 {
+				t.Errorf("expected BlendCostPerM 0 for zero-tokens model, got %.2f", r.BlendCostPerM)
+			}
+		}
+	}
+	if !foundZeroTokens {
+		t.Error("expected zero-tokens model row for zero-token session")
 	}
 }
 

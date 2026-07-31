@@ -170,7 +170,7 @@ func PrintDaily(rows []stats.DailyRow) {
 // PrintModels renders model breakdown rows as a table.
 func PrintModels(rows []stats.ModelRow) {
 	t := newTable()
-	t.AppendHeader(table.Row{"Model", "Sessions", "MESSAGES", "Input", "Output", "Total", "Cache Read", "Cache Write", "Cache Read%", "Cache Write%", "Cost"})
+	t.AppendHeader(table.Row{"Model", "Sessions", "MESSAGES", "Input", "Output", "Total", "Cache Read", "Cache Write", "Cache Read%", "Cache Write%", "Blend $/1M", "Cost"})
 
 	for _, r := range rows {
 		t.AppendRow(table.Row{
@@ -179,6 +179,7 @@ func PrintModels(rows []stats.ModelRow) {
 			num(r.TotalTokens),
 			num(r.CacheRead), num(r.CacheWrite),
 			pctStr(r.CacheReadPct), pctStr(r.CacheWritePct),
+			costStr(r.BlendCostPerM),
 			costStr(r.Cost),
 		})
 	}
@@ -191,12 +192,13 @@ func PrintModels(rows []stats.ModelRow) {
 		{Number: 8, Align: text.AlignRight},
 		{Number: 9, Align: text.AlignRight},
 		{Number: 10, Align: text.AlignRight},
+		{Number: 12, Align: text.AlignRight},
 		{Number: 11, Align: text.AlignRight},
 	})
 
 	var (
 		totSessions, totMessages                    int
-		totInput, totOutput, totCacheRead, totCacheWrite, totTotal int64
+		totInput, totOutput, totCacheRead, totCacheWrite, totTotal, totTokens int64
 		totCost                                                     float64
 	)
 	for _, r := range rows {
@@ -208,6 +210,7 @@ func PrintModels(rows []stats.ModelRow) {
 		totCacheWrite += r.CacheWrite
 		totTotal += r.TotalTokens
 		totCost += r.Cost
+		totTokens += r.InputTokens + r.OutputTokens + r.CacheRead
 	}
 	totReadPct := 0.0
 	totWritePct := 0.0
@@ -216,11 +219,17 @@ func PrintModels(rows []stats.ModelRow) {
 		totWritePct = float64(totCacheWrite) / float64(totTotal) * 100
 	}
 
+	footerBlendCost := 0.0
+	if totTokens > 0 {
+		footerBlendCost = totCost / (float64(totTokens) / 1_000_000)
+	}
+
 	t.AppendFooter(table.Row{
 		"TOTAL", totSessions, totMessages,
 		num(totInput), num(totOutput), num(totTotal),
 		num(totCacheRead), num(totCacheWrite),
-		pctStr(totReadPct), pctStr(totWritePct), costStr(totCost),
+		pctStr(totReadPct), pctStr(totWritePct), costStr(footerBlendCost),
+		costStr(totCost),
 	})
 
 	t.Render()

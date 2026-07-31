@@ -156,6 +156,11 @@ func GetModels(db *sql.DB, daysAgo int) ([]ModelRow, error) {
 			results[i].CacheReadPct = float64(results[i].CacheRead) / float64(results[i].TotalTokens) * 100
 			results[i].CacheWritePct = float64(results[i].CacheWrite) / float64(results[i].TotalTokens) * 100
 		}
+		// compute blend cost per 1M tokens (input + output + cache read)
+		totalTokens := results[i].InputTokens + results[i].OutputTokens + results[i].CacheRead
+		if totalTokens > 0 {
+			results[i].BlendCostPerM = results[i].Cost / (float64(totalTokens) / 1_000_000)
+		}
 	}
 	return results, rows.Err()
 }

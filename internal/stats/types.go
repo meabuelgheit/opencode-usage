@@ -42,6 +42,7 @@ type ModelRow struct {
 	CacheReadPct  float64 // cache_read / (input + cache_read) * 100
 	CacheWritePct float64 // cache_write / total * 100
 	Cost          float64
+	BlendCostPerM float64 // blended cost per 1M tokens (cost / ((input+output+cache_read)/1M))
 	MessageCount  int
 }
 
