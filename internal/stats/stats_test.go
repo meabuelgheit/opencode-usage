@@ -540,6 +540,20 @@ func TestGetSummary(t *testing.T) {
 		t.Errorf("expected positive CacheWritePct, got %.1f", summary.CacheWritePct)
 	}
 
+	// Verify CostPerMTokens: totalCost=0.06, totalBilledTokens=600+300=900
+	// 0.06 / (900 / 1_000_000) = 0.06 / 0.0009 = 66.666...
+	expectedCostPerM := 0.06 / (float64(900) / 1_000_000)
+	if summary.CostPerMTokens != expectedCostPerM {
+		t.Errorf("expected CostPerMTokens %.2f, got %.2f", expectedCostPerM, summary.CostPerMTokens)
+	}
+
+	// Verify EffectiveCostPerMTokens: totalCost=0.06, effectiveTokens=600+300+60=960
+	// 0.06 / (960 / 1_000_000) = 0.06 / 0.00096 = 62.50
+	expectedEffectiveCostPerM := 0.06 / (float64(960) / 1_000_000)
+	if summary.EffectiveCostPerMTokens != expectedEffectiveCostPerM {
+		t.Errorf("expected EffectiveCostPerMTokens %.2f, got %.2f", expectedEffectiveCostPerM, summary.EffectiveCostPerMTokens)
+	}
+
 	// Verify specific values: total cache read = 60, total input = 600, total cache write = 30
 	// CacheReadPct = 60 / (600 + 60) * 100 = 60/660*100 ≈ 9.1%
 	expectedReadPct := float64(60) / float64(600+60) * 100
@@ -576,6 +590,12 @@ func TestGetSummary_EmptyDB(t *testing.T) {
 	}
 	if summary.CacheWritePct != 0 {
 		t.Errorf("expected 0 CacheWritePct for empty DB, got %.1f", summary.CacheWritePct)
+	}
+	if summary.CostPerMTokens != 0 {
+		t.Errorf("expected 0 CostPerMTokens for empty DB, got %.2f", summary.CostPerMTokens)
+	}
+	if summary.EffectiveCostPerMTokens != 0 {
+		t.Errorf("expected 0 EffectiveCostPerMTokens for empty DB, got %.2f", summary.EffectiveCostPerMTokens)
 	}
 }
 

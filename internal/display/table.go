@@ -283,14 +283,16 @@ func PrintSummary(s *stats.SummaryRow) {
 	t := newTable()
 	t.AppendHeader(table.Row{"Metric", "Value"})
 	t.AppendRows([]table.Row{
-		{"Total Sessions", s.TotalSessions},
 		{"Active Days", s.ActiveDays},
+		{"Total Sessions", s.TotalSessions},
+		{"Total Messages", s.MessageCount},
 		{"Total Input Tokens", num(s.TotalInputTokens)},
 		{"Total Output Tokens", num(s.TotalOutputTokens)},
 		{"Total Cache Read", num(s.TotalCacheRead)},
 		{"Total Cache Write", num(s.TotalCacheWrite)},
 		{"Cache Read Rate", pctStr(s.CacheReadPct)},
-		{"Total Messages", s.MessageCount},
+		{"Cost per 1M tokens", fmt.Sprintf("$%.2f", s.CostPerMTokens)},
+		{"Cost per 1M (effective)", fmt.Sprintf("$%.2f", s.EffectiveCostPerMTokens)},
 		{"Total Cost", costStr(s.TotalCost)},
 	})
 

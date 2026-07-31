@@ -260,6 +260,16 @@ func GetSummary(db *sql.DB, daysAgo int) (*SummaryRow, error) {
 		r.CacheWritePct = float64(r.TotalCacheWrite) / float64(totalTokens) * 100
 	}
 
+	totalBilledTokens := r.TotalInputTokens + r.TotalOutputTokens
+	if totalBilledTokens > 0 {
+		r.CostPerMTokens = r.TotalCost / (float64(totalBilledTokens) / 1_000_000)
+	}
+
+	effectiveTokens := r.TotalInputTokens + r.TotalOutputTokens + r.TotalCacheRead
+	if effectiveTokens > 0 {
+		r.EffectiveCostPerMTokens = r.TotalCost / (float64(effectiveTokens) / 1_000_000)
+	}
+
 	return &r, nil
 }
 
