@@ -14,19 +14,29 @@ go install github.com/abuelgheit/opencode-usage@latest
 
 ### Option 2: One-liner (no Go needed)
 
+**macOS / Linux:**
+
 ```bash
 curl -sSL https://raw.githubusercontent.com/abuelgheit/opencode-usage/main/install.sh | bash
 ```
 
+**Windows (PowerShell):**
+
+```powershell
+powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/abuelgheit/opencode-usage/main/install.ps1 | iex"
+```
+
 ### Option 3: Manual download
 
-Download the latest binary from [GitHub Releases](https://github.com/abuelgheit/opencode-usage/releases).
+Download the latest binary for your platform from [GitHub Releases](https://github.com/abuelgheit/opencode-usage/releases). Windows users should download the `opencode-usage_windows_amd64.zip` (or `_arm64.zip`) archive.
 
 ### Verify
 
 ```bash
 opencode-usage version
 ```
+
+> On Windows, if you installed via the PowerShell one-liner, open a **new** terminal first so the updated PATH takes effect.
 
 ## Usage
 
@@ -142,6 +152,12 @@ git clone <repo-url>
 cd opencode-usage
 make build    # builds to bin/opencode-usage
 make test     # runs all tests with coverage
+```
+
+On Windows, build directly with Go:
+
+```bash
+go build -o opencode-usage.exe .
 ```
 
 ## Development
