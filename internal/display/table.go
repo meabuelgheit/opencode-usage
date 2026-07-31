@@ -301,7 +301,7 @@ func PrintSummary(s *stats.SummaryRow) {
 		{"Total Cache Write", num(s.TotalCacheWrite)},
 		{"Cache Read Rate", pctStr(s.CacheReadPct)},
 		{"Cost per 1M tokens", fmt.Sprintf("$%.2f", s.CostPerMTokens)},
-		{"Cost per 1M (effective)", fmt.Sprintf("$%.2f", s.EffectiveCostPerMTokens)},
+		{"Blend $/1M", fmt.Sprintf("$%.2f", s.BlendCostPerM)},
 		{"Total Cost", costStr(s.TotalCost)},
 	})
 

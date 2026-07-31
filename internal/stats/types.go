@@ -71,7 +71,7 @@ type SummaryRow struct {
 	TotalCacheWrite  int64
 	TotalCost        float64
 	CostPerMTokens   float64 // cost per million input+output tokens
-	EffectiveCostPerMTokens float64 // cost per million tokens including cache reads
+	BlendCostPerM float64 // blended cost per 1M tokens including cache reads
 	CacheReadPct     float64 // aggregate
 	CacheWritePct    float64 // aggregate
 	MessageCount     int

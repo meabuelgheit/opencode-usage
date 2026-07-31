@@ -579,11 +579,11 @@ func TestGetSummary(t *testing.T) {
 		t.Errorf("expected CostPerMTokens %.2f, got %.2f", expectedCostPerM, summary.CostPerMTokens)
 	}
 
-	// Verify EffectiveCostPerMTokens: totalCost=0.06, effectiveTokens=600+300+60=960
+	// Verify BlendCostPerM: totalCost=0.06, blendTokens=600+300+60=960
 	// 0.06 / (960 / 1_000_000) = 0.06 / 0.00096 = 62.50
-	expectedEffectiveCostPerM := 0.06 / (float64(960) / 1_000_000)
-	if summary.EffectiveCostPerMTokens != expectedEffectiveCostPerM {
-		t.Errorf("expected EffectiveCostPerMTokens %.2f, got %.2f", expectedEffectiveCostPerM, summary.EffectiveCostPerMTokens)
+	expectedBlendCostPerM := 0.06 / (float64(960) / 1_000_000)
+	if summary.BlendCostPerM != expectedBlendCostPerM {
+		t.Errorf("expected BlendCostPerM %.2f, got %.2f", expectedBlendCostPerM, summary.BlendCostPerM)
 	}
 
 	// Verify specific values: total cache read = 60, total input = 600, total cache write = 30
@@ -626,8 +626,8 @@ func TestGetSummary_EmptyDB(t *testing.T) {
 	if summary.CostPerMTokens != 0 {
 		t.Errorf("expected 0 CostPerMTokens for empty DB, got %.2f", summary.CostPerMTokens)
 	}
-	if summary.EffectiveCostPerMTokens != 0 {
-		t.Errorf("expected 0 EffectiveCostPerMTokens for empty DB, got %.2f", summary.EffectiveCostPerMTokens)
+	if summary.BlendCostPerM != 0 {
+		t.Errorf("expected 0 BlendCostPerM for empty DB, got %.2f", summary.BlendCostPerM)
 	}
 }
 

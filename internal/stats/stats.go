@@ -270,9 +270,9 @@ func GetSummary(db *sql.DB, daysAgo int) (*SummaryRow, error) {
 		r.CostPerMTokens = r.TotalCost / (float64(totalBilledTokens) / 1_000_000)
 	}
 
-	effectiveTokens := r.TotalInputTokens + r.TotalOutputTokens + r.TotalCacheRead
-	if effectiveTokens > 0 {
-		r.EffectiveCostPerMTokens = r.TotalCost / (float64(effectiveTokens) / 1_000_000)
+	blendTokens := r.TotalInputTokens + r.TotalOutputTokens + r.TotalCacheRead
+	if blendTokens > 0 {
+		r.BlendCostPerM = r.TotalCost / (float64(blendTokens) / 1_000_000)
 	}
 
 	return &r, nil
